@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Hotelería El Haras</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: barra superior fija con período y modo; navegación por pestañas; cada pestaña es una tabla de trabajo ancha con resumen arriba. */
+:root{
+  --bg:#f4f3ee; --panel:#ffffff; --panel2:#ebe9e1; --fg:#1f241d; --muted:#5f665a; --line:#d6d4c9;
+  --accent:#3b6a3a; --accent-fg:#ffffff; --accent-soft:#e3eddf;
+  --ok:#2d7a3a; --warn:#b2721a; --bad:#b23a2e; --bad-soft:#f6e1de; --warn-soft:#f7ecd7;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#171a16; --panel:#20241f; --panel2:#2a2f28; --fg:#e8e8e0; --muted:#a3a99c; --line:#3a4038;
+  --accent:#7fb37a; --accent-fg:#101510; --accent-soft:#2b3a2a;
+  --ok:#7fc98a; --warn:#e0a84a; --bad:#e3756a; --bad-soft:#4a2a27; --warn-soft:#4a3d22; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#171a16; --panel:#20241f; --panel2:#2a2f28; --fg:#e8e8e0; --muted:#a3a99c; --line:#3a4038;
+  --accent:#7fb37a; --accent-fg:#101510; --accent-soft:#2b3a2a;
+  --ok:#7fc98a; --warn:#e0a84a; --bad:#e3756a; --bad-soft:#4a2a27; --warn-soft:#4a3d22; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--font);}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:600}
+h2{font-size:17px} h3{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 12px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
+button.danger{color:var(--bad)}
+button.small{padding:3px 8px;font-size:12.5px}
+input,select{border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:5px 7px;min-width:0}
+input[type=number]{font-family:var(--mono);text-align:right;width:7.5em}
+input.cab{width:5.5em}
+input.date{width:9.5em}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+  padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.brand{display:flex;flex-direction:column;gap:1px;min-width:0}
+.brand b{font-size:16px;letter-spacing:.01em}
+.brand span{font-size:12px;color:var(--muted)}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:999px;background:var(--panel2);color:var(--muted);white-space:nowrap}
+.pill.ok{background:var(--accent-soft);color:var(--accent)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+nav.tabs{display:flex;gap:2px;padding:8px 16px 0;overflow-x:auto;border-bottom:1px solid var(--line);background:var(--bg)}
+nav.tabs button{border:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;background:transparent;padding:8px 12px;color:var(--muted);white-space:nowrap}
+nav.tabs button.active{color:var(--fg);border-bottom-color:var(--accent);font-weight:600;background:var(--panel)}
+main{padding-block:16px 40px;padding-inline:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.panel header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;margin-bottom:10px}
+.panel header .sub{color:var(--muted);font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.row label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--panel2);border-radius:6px;padding:10px 12px}
+.kpi .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-family:var(--mono);font-size:19px;font-weight:500;margin-top:2px}
+.kpi .v small{font-size:12px;color:var(--muted);font-family:var(--font)}
+.kpi.bad .v{color:var(--bad)} .kpi.ok .v{color:var(--ok)}
+.tablewrap{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;background:var(--panel);position:sticky;top:0}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.n input{text-align:right}
+tr.total td{font-weight:600;border-top:2px solid var(--line);background:var(--panel2)}
+tr.sub td{color:var(--muted)}
+td.bad{color:var(--bad);font-weight:600} td.ok{color:var(--ok)}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:6px;font-size:13px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:8px 12px;border-radius:0 6px 6px 0;font-size:13px}
+.note.warn{border-color:var(--warn);background:var(--warn-soft)}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;background:var(--panel2);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tag.cierto{background:#e4ecf6;color:#2c5a8a} .tag.propio{background:var(--accent-soft);color:var(--accent)} .tag.no_propio{background:var(--warn-soft);color:var(--warn)} .tag.residual{background:var(--panel2);color:var(--fg)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .tag.cierto{background:#27384d;color:#9dc0e8} }
+:root[data-theme="dark"] .tag.cierto{background:#27384d;color:#9dc0e8}
+/* liquidación */
+.liq{background:var(--panel);color:var(--fg);max-width:860px;margin:0 auto;padding:28px 32px;border:1px solid var(--line);border-radius:8px}
+.liq .head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--fg);padding-bottom:10px}
+.liq .head .emp b{font-size:18px;display:block}
+.liq .head .emp span{display:block;font-size:12px;color:var(--muted)}
+.liq .head .doc{text-align:right}
+.liq .head .doc b{display:block;font-size:15px;letter-spacing:.08em}
+.liq h3{margin:18px 0 6px}
+.liq table th{position:static;background:transparent}
+.liq .tot{display:grid;grid-template-columns:1fr auto;gap:4px 24px;max-width:400px;margin-left:auto;margin-top:12px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.liq .tot span:nth-child(even){text-align:right}
+.liq .tot .lab{font-family:var(--font);color:var(--muted)}
+.liq .tot .final{font-weight:700;font-size:17px;border-top:2px solid var(--fg);padding-top:6px}
+.liq .ind{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.liq .ind b{color:var(--fg);font-family:var(--mono)}
+@media print{
+  body{background:#fff;color:#000} .topbar,nav.tabs,.noprint{display:none!important}
+  main{padding:0} .liq{border:0;max-width:none;padding:0;box-shadow:none}
+}
+@media (prefers-reduced-motion: reduce){ .toast{transition:none} }
+</style>
+</head>
+<body>
+
+
+<div class="topbar">
+  <div class="brand"><b>Hotelería El Haras</b><span>Facturación mensual de hoteleros · Pecuaria El Garabí S.A.</span></div>
+  <div class="row">
+    <label>Período <select id="selPeriodo"></select></label>
+    <button id="btnNuevoPeriodo" class="small" title="Crear el mes siguiente copiando hoteleros y parámetros">+ Mes</button>
+    <button id="btnTomar" class="small" title="Trae alimentación (Nutrir FL), movimientos y stock sugerido (WinCampo) desde la PC de la oficina">⟳ Tomar información</button>
+  </div>
+  <div class="spacer"></div>
+  <span id="pillCierre" class="pill">Cierre diario</span>
+  <span id="pillModo" class="pill">Modo local</span>
+  <button id="btnGuardar" class="primary">Guardar</button>
+</div>
+<nav class="tabs" id="tabs">
+  <button data-tab="control" class="active">Control del mes</button>
+  <button data-tab="hoteleros">Hoteleros</button>
+  <button data-tab="parametros">Parámetros y precios</button>
+  <button data-tab="movimientos">Movimientos</button>
+  <button data-tab="alimentacion">Alimentación y sanidad</button>
+  <button data-tab="liquidaciones">Liquidaciones</button>
+  <button data-tab="datos">Datos y conexión</button>
+</nav>
+<main id="main"></main>
+<div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script id="demo-data" type="application/json">{"version":1,"periodo":{"mes":"2026-08","markup":0.15,"precio_hoteleria":450,"precio_sanidad":7758,"iva":0.21},"insumos":[{"nombre":"GLUTEN DE MAIZ","humedad":0.58,"tipo":"fijo","base":147.784,"merma":0.05},{"nombre":"MAIZ GRANO","humedad":0.13,"tipo":"maiz","base":0,"merma":0},{"nombre":"OTROS","humedad":0.0,"tipo":"manual","base":0,"merma":0},{"nombre":"NUCLEO CONC 5% LDB","humedad":0.05,"tipo":"fijo","base":482.603,"merma":0},{"nombre":"ROLLO HENO","humedad":0.18,"tipo":"manual","base":0,"merma":0},{"nombre":"SILO DE MAIZ","humedad":0.49,"tipo":"silo","base":0,"merma":0},{"nombre":"HOMINY FEED","humedad":0.22,"tipo":"manual","base":0,"merma":0},{"nombre":"HARINA GERMEN","humedad":0.01,"tipo":"fijo","base":305.424,"merma":0}],"precios_config":{"maiz":{"flete_largo":63181,"flete_corto":26573,"piso":230.73,"cotizaciones":[{"fecha":"2026-08-03","precio_tn":276400.0},{"fecha":"2026-08-04","precio_tn":275100.0},{"fecha":"2026-08-05","precio_tn":276600.0},{"fecha":"2026-08-06","precio_tn":278700.0},{"fecha":"2026-08-07","precio_tn":277800.0},{"fecha":"2026-08-10","precio_tn":267570.0},{"fecha":"2026-08-11","precio_tn":263700.0},{"fecha":"2026-08-12","precio_tn":266100.0},{"fecha":"2026-08-13","precio_tn":267050.0},{"fecha":"2026-08-14","precio_tn":269090.0},{"fecha":"2026-08-18","precio_tn":274170.0},{"fecha":"2026-08-19","precio_tn":275280.0},{"fecha":"2026-08-20","precio_tn":272300.0},{"fecha":"2026-08-21","precio_tn":266710.0},{"fecha":"2026-08-24","precio_tn":270180.0},{"fecha":"2026-08-25","precio_tn":269000.0},{"fecha":"2026-08-26","precio_tn":270500.0},{"fecha":"2026-08-27","precio_tn":270500.0},{"fecha":"2026-08-28","precio_tn":271300.0},{"fecha":"2026-08-31","precio_tn":270700.0}]},"silo":{"adicional":14.5,"rendimiento":7350,"factor":0.87}},"hoteleros":[{"id":"PEGSA","nombre":"PEGSA","razon_social":"Pecuaria El Garabí S.A.","cuit":"33-70793667-9","tratamiento":"residual","ajuste_pct":0,"ajuste_kg":0,"corrales":[],"stock_inicial":3972,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":true},{"id":"BULLTRADE","nombre":"BULLTRADE","razon_social":"Bulltrade S.R.L.","cuit":"30-71128690-6","tratamiento":"propio","ajuste_pct":0,"ajuste_kg":0,"corrales":[],"stock_inicial":1621,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":true},{"id":"DARWASH","nombre":"DARWASH","razon_social":"Darwash S.A.","cuit":"30-51163433-0","tratamiento":"no_propio","ajuste_pct":0.25,"ajuste_kg":0,"corrales":[],"stock_inicial":54,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":true},{"id":"FERIA","nombre":"FERIA","razon_social":"Feria","cuit":"","tratamiento":"cierto","ajuste_pct":0,"ajuste_kg":0,"corrales":["FERIA"],"stock_inicial":0,"precio_hoteleria":50000,"paga_hoteleria":true,"paga_sanidad":true,"activo":true},{"id":"UGMA","nombre":"UGMA","razon_social":"UGMA","cuit":"","tratamiento":"no_propio","ajuste_pct":0.25,"ajuste_kg":0,"corrales":[],"stock_inicial":68,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":true},{"id":"LA TAPERA","nombre":"LA TAPERA","razon_social":"Las Taperas","cuit":"20-11049261-9","tratamiento":"propio","ajuste_pct":0,"ajuste_kg":0,"corrales":[],"stock_inicial":166,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":true},{"id":"PACO","nombre":"PACO GALARZA","razon_social":"Paco Galarza","cuit":"","tratamiento":"propio","ajuste_pct":0,"ajuste_kg":0,"corrales":[],"stock_inicial":0,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":false},{"id":"ZAMBRONI","nombre":"ZAMBRONI","razon_social":"Zambroni","cuit":"","tratamiento":"propio","ajuste_pct":0,"ajuste_kg":0,"corrales":[],"stock_inicial":0,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":false},{"id":"TERCIO BRAVO","nombre":"TERCIO BRAVO","razon_social":"El Yulto S.A.S.","cuit":"","tratamiento":"propio","ajuste_pct":0,"ajuste_kg":0,"corrales":[],"stock_inicial":0,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":false},{"id":"BAILO","nombre":"BAILO","razon_social":"Ricardo Bailo","cuit":"","tratamiento":"propio","ajuste_pct":0,"ajuste_kg":0,"corrales":[],"stock_inicial":0,"precio_hoteleria":null,"paga_hoteleria":true,"paga_sanidad":true,"activo":false}],"alimentacion":[{"fecha":"2026-08-01","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":26269.96},{"fecha":"2026-08-01","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":9351.97},{"fecha":"2026-08-01","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":24452.97},{"fecha":"2026-08-01","corral":"GENERAL","insumo":"HARINA GERMEN","kg":2749.96},{"fecha":"2026-08-01","corral":"GENERAL","insumo":"MAIZ GRANO","kg":16299.97},{"fecha":"2026-08-02","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":20593.97},{"fecha":"2026-08-02","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":7581.96},{"fecha":"2026-08-02","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":19038.97},{"fecha":"2026-08-02","corral":"GENERAL","insumo":"HARINA GERMEN","kg":2788.97},{"fecha":"2026-08-02","corral":"GENERAL","insumo":"MAIZ GRANO","kg":14105.97},{"fecha":"2026-08-03","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":27544.96},{"fecha":"2026-08-03","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":8929.97},{"fecha":"2026-08-03","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":25919.96},{"fecha":"2026-08-03","corral":"GENERAL","insumo":"HARINA GERMEN","kg":2989.96},{"fecha":"2026-08-03","corral":"GENERAL","insumo":"MAIZ GRANO","kg":18249.95},{"fecha":"2026-08-04","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":27869.97},{"fecha":"2026-08-04","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":9159.96},{"fecha":"2026-08-04","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":26204.97},{"fecha":"2026-08-04","corral":"GENERAL","insumo":"HARINA GERMEN","kg":3154.97},{"fecha":"2026-08-04","corral":"GENERAL","insumo":"MAIZ GRANO","kg":18219.95},{"fecha":"2026-08-05","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":28404.96},{"fecha":"2026-08-05","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":9549.96},{"fecha":"2026-08-05","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":26534.97},{"fecha":"2026-08-05","corral":"GENERAL","insumo":"HARINA GERMEN","kg":3194.96},{"fecha":"2026-08-05","corral":"GENERAL","insumo":"MAIZ GRANO","kg":18614.95},{"fecha":"2026-08-06","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":31119.95},{"fecha":"2026-08-06","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":9832.95},{"fecha":"2026-08-06","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":27519.96},{"fecha":"2026-08-06","corral":"GENERAL","insumo":"HARINA GERMEN","kg":3374.95},{"fecha":"2026-08-06","corral":"GENERAL","insumo":"MAIZ GRANO","kg":22546.94},{"fecha":"2026-08-09","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":30724.95},{"fecha":"2026-08-09","corral":"GENERAL","insumo":"HARINA GERMEN","kg":10059.95},{"fecha":"2026-08-09","corral":"GENERAL","insumo":"MAIZ GRANO","kg":27754.95},{"fecha":"2026-08-09","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":4349.96},{"fecha":"2026-08-09","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":24334.94},{"fecha":"2026-08-10","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":30469.96},{"fecha":"2026-08-10","corral":"GENERAL","insumo":"HARINA GERMEN","kg":9484.97},{"fecha":"2026-08-10","corral":"GENERAL","insumo":"MAIZ GRANO","kg":25994.96},{"fecha":"2026-08-10","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3524.96},{"fecha":"2026-08-10","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":25069.95},{"fecha":"2026-08-11","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":30999.95},{"fecha":"2026-08-11","corral":"GENERAL","insumo":"HARINA GERMEN","kg":9549.96},{"fecha":"2026-08-11","corral":"GENERAL","insumo":"MAIZ GRANO","kg":26619.95},{"fecha":"2026-08-11","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3259.96},{"fecha":"2026-08-11","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":24159.96},{"fecha":"2026-08-12","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":30929.96},{"fecha":"2026-08-12","corral":"GENERAL","insumo":"HARINA GERMEN","kg":9722.95},{"fecha":"2026-08-12","corral":"GENERAL","insumo":"MAIZ GRANO","kg":26699.94},{"fecha":"2026-08-12","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3189.96},{"fecha":"2026-08-12","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":22919.96},{"fecha":"2026-08-14","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":30294.94},{"fecha":"2026-08-14","corral":"GENERAL","insumo":"HARINA GERMEN","kg":8689.96},{"fecha":"2026-08-14","corral":"GENERAL","insumo":"MAIZ GRANO","kg":33004.95},{"fecha":"2026-08-14","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3414.96},{"fecha":"2026-08-14","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":23624.96},{"fecha":"2026-08-15","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":28449.95},{"fecha":"2026-08-15","corral":"GENERAL","insumo":"HARINA GERMEN","kg":9697.95},{"fecha":"2026-08-15","corral":"GENERAL","insumo":"MAIZ GRANO","kg":36729.97},{"fecha":"2026-08-15","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":4599.95},{"fecha":"2026-08-15","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":24401.95},{"fecha":"2026-08-16","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":29534.96},{"fecha":"2026-08-16","corral":"GENERAL","insumo":"HARINA GERMEN","kg":8484.96},{"fecha":"2026-08-16","corral":"GENERAL","insumo":"MAIZ GRANO","kg":36931.94},{"fecha":"2026-08-16","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":4244.96},{"fecha":"2026-08-16","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":23827.95},{"fecha":"2026-08-17","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":27819.95},{"fecha":"2026-08-17","corral":"GENERAL","insumo":"HARINA GERMEN","kg":8484.95},{"fecha":"2026-08-17","corral":"GENERAL","insumo":"MAIZ GRANO","kg":33274.95},{"fecha":"2026-08-17","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3219.96},{"fecha":"2026-08-17","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":22059.95},{"fecha":"2026-08-18","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":27389.95},{"fecha":"2026-08-18","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6939.96},{"fecha":"2026-08-18","corral":"GENERAL","insumo":"MAIZ GRANO","kg":31769.96},{"fecha":"2026-08-18","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3284.96},{"fecha":"2026-08-18","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":19509.96},{"fecha":"2026-08-19","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":26594.96},{"fecha":"2026-08-19","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6949.96},{"fecha":"2026-08-19","corral":"GENERAL","insumo":"MAIZ GRANO","kg":31574.96},{"fecha":"2026-08-19","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3189.97},{"fecha":"2026-08-19","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":18964.96},{"fecha":"2026-08-20","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":29219.95},{"fecha":"2026-08-20","corral":"GENERAL","insumo":"HARINA GERMEN","kg":7444.96},{"fecha":"2026-08-20","corral":"GENERAL","insumo":"MAIZ GRANO","kg":33269.95},{"fecha":"2026-08-20","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":4004.95},{"fecha":"2026-08-20","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":20269.95},{"fecha":"2026-08-21","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":21924.97},{"fecha":"2026-08-21","corral":"GENERAL","insumo":"HARINA GERMEN","kg":5474.98},{"fecha":"2026-08-21","corral":"GENERAL","insumo":"MAIZ GRANO","kg":25714.96},{"fecha":"2026-08-21","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":2529.97},{"fecha":"2026-08-21","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":15219.97},{"fecha":"2026-08-22","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":24054.95},{"fecha":"2026-08-22","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6021.96},{"fecha":"2026-08-22","corral":"GENERAL","insumo":"MAIZ GRANO","kg":28339.96},{"fecha":"2026-08-22","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":2924.96},{"fecha":"2026-08-22","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":16677.96},{"fecha":"2026-08-23","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":24115.21},{"fecha":"2026-08-23","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6748.4},{"fecha":"2026-08-23","corral":"GENERAL","insumo":"MAIZ GRANO","kg":28100.1},{"fecha":"2026-08-23","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":2816.2},{"fecha":"2026-08-23","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":16614.83},{"fecha":"2026-08-24","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":24604.97},{"fecha":"2026-08-24","corral":"GENERAL","insumo":"HARINA GERMEN","kg":5084.96},{"fecha":"2026-08-24","corral":"GENERAL","insumo":"MAIZ GRANO","kg":26629.97},{"fecha":"2026-08-24","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":2484.97},{"fecha":"2026-08-24","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":16979.97},{"fecha":"2026-08-25","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":27809.95},{"fecha":"2026-08-25","corral":"GENERAL","insumo":"HARINA GERMEN","kg":5404.97},{"fecha":"2026-08-25","corral":"GENERAL","insumo":"MAIZ GRANO","kg":28934.97},{"fecha":"2026-08-25","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3089.95},{"fecha":"2026-08-25","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":21029.95},{"fecha":"2026-08-26","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":31124.95},{"fecha":"2026-08-26","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6224.95},{"fecha":"2026-08-26","corral":"GENERAL","insumo":"MAIZ GRANO","kg":31384.97},{"fecha":"2026-08-26","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3014.95},{"fecha":"2026-08-26","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":24724.95},{"fecha":"2026-08-27","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":29909.96},{"fecha":"2026-08-27","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6454.97},{"fecha":"2026-08-27","corral":"GENERAL","insumo":"MAIZ GRANO","kg":31608.95},{"fecha":"2026-08-27","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3115.96},{"fecha":"2026-08-27","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":23346.95},{"fecha":"2026-08-28","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":28578.96},{"fecha":"2026-08-28","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6951.96},{"fecha":"2026-08-28","corral":"GENERAL","insumo":"MAIZ GRANO","kg":31603.96},{"fecha":"2026-08-28","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3169.96},{"fecha":"2026-08-28","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":22235.96},{"fecha":"2026-08-29","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":24444.96},{"fecha":"2026-08-29","corral":"GENERAL","insumo":"HARINA GERMEN","kg":5656.97},{"fecha":"2026-08-29","corral":"GENERAL","insumo":"MAIZ GRANO","kg":26538.97},{"fecha":"2026-08-29","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3048.96},{"fecha":"2026-08-29","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":20729.96},{"fecha":"2026-08-30","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":26104.96},{"fecha":"2026-08-30","corral":"GENERAL","insumo":"HARINA GERMEN","kg":6418.96},{"fecha":"2026-08-30","corral":"GENERAL","insumo":"MAIZ GRANO","kg":30268.96},{"fecha":"2026-08-30","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3522.96},{"fecha":"2026-08-30","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":21321.96},{"fecha":"2026-08-31","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":26975.96},{"fecha":"2026-08-31","corral":"GENERAL","insumo":"HARINA GERMEN","kg":7155.95},{"fecha":"2026-08-31","corral":"GENERAL","insumo":"MAIZ GRANO","kg":30794.96},{"fecha":"2026-08-31","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":3167.96},{"fecha":"2026-08-31","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":19730.96},{"fecha":"2026-08-07","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":31119.95},{"fecha":"2026-08-07","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":9832.95},{"fecha":"2026-08-07","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":27519.96},{"fecha":"2026-08-07","corral":"GENERAL","insumo":"HARINA GERMEN","kg":3374.95},{"fecha":"2026-08-07","corral":"GENERAL","insumo":"MAIZ GRANO","kg":22546.94},{"fecha":"2026-08-08","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":31119.95},{"fecha":"2026-08-08","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":9832.95},{"fecha":"2026-08-08","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":27519.96},{"fecha":"2026-08-08","corral":"GENERAL","insumo":"HARINA GERMEN","kg":3374.95},{"fecha":"2026-08-08","corral":"GENERAL","insumo":"MAIZ GRANO","kg":22546.94},{"fecha":"2026-08-13","corral":"GENERAL","insumo":"NUCLEO CONC 5% LDB","kg":31119.95},{"fecha":"2026-08-13","corral":"GENERAL","insumo":"SILO DE MAIZ","kg":9832.95},{"fecha":"2026-08-13","corral":"GENERAL","insumo":"GLUTEN DE MAIZ","kg":27519.96},{"fecha":"2026-08-13","corral":"GENERAL","insumo":"HARINA GERMEN","kg":3374.95},{"fecha":"2026-08-13","corral":"GENERAL","insumo":"MAIZ GRANO","kg":22546.94},{"fecha":"2026-08-06","corral":"FERIA","insumo":"SILO DE MAIZ","kg":4515.0},{"fecha":"2026-08-07","corral":"FERIA","insumo":"SILO DE MAIZ","kg":6600.0},{"fecha":"2026-08-08","corral":"FERIA","insumo":"SILO DE MAIZ","kg":6635.0},{"fecha":"2026-08-09","corral":"FERIA","insumo":"SILO DE MAIZ","kg":6600.0},{"fecha":"2026-08-10","corral":"FERIA","insumo":"SILO DE MAIZ","kg":8730.0},{"fecha":"2026-08-11","corral":"FERIA","insumo":"SILO DE MAIZ","kg":6765.0},{"fecha":"2026-08-12","corral":"FERIA","insumo":"SILO DE MAIZ","kg":4530.0},{"fecha":"2026-08-13","corral":"FERIA","insumo":"SILO DE MAIZ","kg":4525.0},{"fecha":"2026-08-14","corral":"FERIA","insumo":"SILO DE MAIZ","kg":2505.0},{"fecha":"2026-08-25","corral":"FERIA","insumo":"SILO DE MAIZ","kg":4470.0},{"fecha":"2026-08-26","corral":"FERIA","insumo":"SILO DE MAIZ","kg":8960.0},{"fecha":"2026-08-27","corral":"FERIA","insumo":"SILO DE MAIZ","kg":7000.0},{"fecha":"2026-08-28","corral":"FERIA","insumo":"SILO DE MAIZ","kg":5040.0},{"fecha":"2026-08-29","corral":"FERIA","insumo":"SILO DE MAIZ","kg":4985.0},{"fecha":"2026-08-30","corral":"FERIA","insumo":"SILO DE MAIZ","kg":1100.0},{"fecha":"2026-08-31","corral":"FERIA","insumo":"SILO DE MAIZ","kg":2200.0}],"movimientos":[{"fecha":"2026-08-03","hotelero":"PEGSA","tipo":"egreso","cabezas":22,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-03","hotelero":"PEGSA","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-06","hotelero":"PEGSA","tipo":"ingreso","cabezas":5,"tropa":"PEG.DAR.05/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-06","hotelero":"PEGSA","tipo":"egreso","cabezas":6,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-07","hotelero":"PEGSA","tipo":"ingreso","cabezas":99,"tropa":"PEG.DAR.07/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-09","hotelero":"PEGSA","tipo":"egreso","cabezas":18,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-10","hotelero":"PEGSA","tipo":"egreso","cabezas":41,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-11","hotelero":"PEGSA","tipo":"egreso","cabezas":32,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-12","hotelero":"PEGSA","tipo":"egreso","cabezas":11,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-17","hotelero":"PEGSA","tipo":"egreso","cabezas":13,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-18","hotelero":"PEGSA","tipo":"ingreso","cabezas":95,"tropa":"PEG.UTE.18/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-18","hotelero":"PEGSA","tipo":"egreso","cabezas":27,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-19","hotelero":"PEGSA","tipo":"ingreso","cabezas":75,"tropa":"PEG.VIL.19/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-19","hotelero":"PEGSA","tipo":"egreso","cabezas":23,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-20","hotelero":"PEGSA","tipo":"egreso","cabezas":41,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-21","hotelero":"PEGSA","tipo":"ingreso","cabezas":200,"tropa":"PEG.FRH.23/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-21","hotelero":"PEGSA","tipo":"egreso","cabezas":62,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-23","hotelero":"PEGSA","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-25","hotelero":"PEGSA","tipo":"ingreso","cabezas":106,"tropa":"PEG.ELC.25/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-25","hotelero":"PEGSA","tipo":"egreso","cabezas":42,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-26","hotelero":"PEGSA","tipo":"ingreso","cabezas":26,"tropa":"PEG.DAR.26/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-26","hotelero":"PEGSA","tipo":"egreso","cabezas":54,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-27","hotelero":"PEGSA","tipo":"egreso","cabezas":62,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-28","hotelero":"PEGSA","tipo":"egreso","cabezas":82,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-29","hotelero":"PEGSA","tipo":"mortandad","cabezas":7,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-03","hotelero":"BULLTRADE","tipo":"egreso","cabezas":3,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-06","hotelero":"BULLTRADE","tipo":"egreso","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-09","hotelero":"BULLTRADE","tipo":"egreso","cabezas":14,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-10","hotelero":"BULLTRADE","tipo":"egreso","cabezas":19,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-11","hotelero":"BULLTRADE","tipo":"egreso","cabezas":28,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-12","hotelero":"BULLTRADE","tipo":"egreso","cabezas":41,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-16","hotelero":"BULLTRADE","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-17","hotelero":"BULLTRADE","tipo":"egreso","cabezas":24,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-18","hotelero":"BULLTRADE","tipo":"egreso","cabezas":4,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-19","hotelero":"BULLTRADE","tipo":"egreso","cabezas":9,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-19","hotelero":"BULLTRADE","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-20","hotelero":"BULLTRADE","tipo":"egreso","cabezas":49,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-21","hotelero":"BULLTRADE","tipo":"egreso","cabezas":8,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-25","hotelero":"BULLTRADE","tipo":"egreso","cabezas":56,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-26","hotelero":"BULLTRADE","tipo":"egreso","cabezas":60,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-26","hotelero":"BULLTRADE","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-27","hotelero":"BULLTRADE","tipo":"egreso","cabezas":57,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-29","hotelero":"BULLTRADE","tipo":"mortandad","cabezas":2,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-29","hotelero":"DARWASH","tipo":"mortandad","cabezas":4,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-06","hotelero":"FERIA","tipo":"ingreso","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-15","hotelero":"FERIA","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-25","hotelero":"FERIA","tipo":"ingreso","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-07","hotelero":"UGMA","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-27","hotelero":"UGMA","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-02","hotelero":"LA TAPERA","tipo":"mortandad","cabezas":1,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-03","hotelero":"LA TAPERA","tipo":"egreso","cabezas":8,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-08","hotelero":"LA TAPERA","tipo":"egreso","cabezas":33,"tropa":"","sanidad":false,"origen":"sistema"},{"fecha":"2026-08-19","hotelero":"LA TAPERA","tipo":"ingreso","cabezas":4,"tropa":"LTA.VIL.19/08/2026","sanidad":true,"origen":"sistema"},{"fecha":"2026-08-29","hotelero":"LA TAPERA","tipo":"mortandad","cabezas":6,"tropa":"","sanidad":false,"origen":"sistema"}],"precios":[{"fecha":"2026-08-01","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-01","insumo":"MAIZ GRANO","precio":239.792},{"fecha":"2026-08-01","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-01","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-01","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-01","insumo":"SILO DE MAIZ","precio":162.607},{"fecha":"2026-08-01","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-01","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-02","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-02","insumo":"MAIZ GRANO","precio":239.792},{"fecha":"2026-08-02","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-02","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-02","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-02","insumo":"SILO DE MAIZ","precio":162.607},{"fecha":"2026-08-02","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-02","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-03","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-03","insumo":"MAIZ GRANO","precio":239.792},{"fecha":"2026-08-03","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-03","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-03","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-03","insumo":"SILO DE MAIZ","precio":162.607},{"fecha":"2026-08-03","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-03","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-04","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-04","insumo":"MAIZ GRANO","precio":238.492},{"fecha":"2026-08-04","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-04","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-04","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-04","insumo":"SILO DE MAIZ","precio":161.7757},{"fecha":"2026-08-04","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-04","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-05","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-05","insumo":"MAIZ GRANO","precio":239.992},{"fecha":"2026-08-05","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-05","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-05","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-05","insumo":"SILO DE MAIZ","precio":162.7349},{"fecha":"2026-08-05","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-05","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-06","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-06","insumo":"MAIZ GRANO","precio":242.092},{"fecha":"2026-08-06","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-06","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-06","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-06","insumo":"SILO DE MAIZ","precio":164.0778},{"fecha":"2026-08-06","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-06","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-07","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-07","insumo":"MAIZ GRANO","precio":241.192},{"fecha":"2026-08-07","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-07","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-07","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-07","insumo":"SILO DE MAIZ","precio":163.5022},{"fecha":"2026-08-07","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-07","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-08","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-08","insumo":"MAIZ GRANO","precio":241.192},{"fecha":"2026-08-08","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-08","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-08","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-08","insumo":"SILO DE MAIZ","precio":163.5022},{"fecha":"2026-08-08","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-08","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-09","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-09","insumo":"MAIZ GRANO","precio":241.192},{"fecha":"2026-08-09","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-09","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-09","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-09","insumo":"SILO DE MAIZ","precio":163.5022},{"fecha":"2026-08-09","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-09","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-10","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-10","insumo":"MAIZ GRANO","precio":230.962},{"fecha":"2026-08-10","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-10","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-10","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-10","insumo":"SILO DE MAIZ","precio":156.9607},{"fecha":"2026-08-10","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-10","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-11","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-11","insumo":"MAIZ GRANO","precio":230.73},{"fecha":"2026-08-11","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-11","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-11","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-11","insumo":"SILO DE MAIZ","precio":156.8123},{"fecha":"2026-08-11","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-11","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-12","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-12","insumo":"MAIZ GRANO","precio":230.73},{"fecha":"2026-08-12","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-12","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-12","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-12","insumo":"SILO DE MAIZ","precio":156.8123},{"fecha":"2026-08-12","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-12","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-13","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-13","insumo":"MAIZ GRANO","precio":230.73},{"fecha":"2026-08-13","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-13","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-13","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-13","insumo":"SILO DE MAIZ","precio":156.8123},{"fecha":"2026-08-13","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-13","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-14","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-14","insumo":"MAIZ GRANO","precio":232.482},{"fecha":"2026-08-14","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-14","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-14","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-14","insumo":"SILO DE MAIZ","precio":157.9326},{"fecha":"2026-08-14","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-14","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-15","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-15","insumo":"MAIZ GRANO","precio":232.482},{"fecha":"2026-08-15","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-15","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-15","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-15","insumo":"SILO DE MAIZ","precio":157.9326},{"fecha":"2026-08-15","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-15","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-16","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-16","insumo":"MAIZ GRANO","precio":232.482},{"fecha":"2026-08-16","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-16","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-16","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-16","insumo":"SILO DE MAIZ","precio":157.9326},{"fecha":"2026-08-16","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-16","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-17","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-17","insumo":"MAIZ GRANO","precio":232.482},{"fecha":"2026-08-17","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-17","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-17","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-17","insumo":"SILO DE MAIZ","precio":157.9326},{"fecha":"2026-08-17","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-17","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-18","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-18","insumo":"MAIZ GRANO","precio":237.562},{"fecha":"2026-08-18","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-18","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-18","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-18","insumo":"SILO DE MAIZ","precio":161.181},{"fecha":"2026-08-18","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-18","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-19","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-19","insumo":"MAIZ GRANO","precio":238.672},{"fecha":"2026-08-19","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-19","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-19","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-19","insumo":"SILO DE MAIZ","precio":161.8908},{"fecha":"2026-08-19","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-19","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-20","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-20","insumo":"MAIZ GRANO","precio":235.692},{"fecha":"2026-08-20","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-20","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-20","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-20","insumo":"SILO DE MAIZ","precio":159.9853},{"fecha":"2026-08-20","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-20","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-21","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-21","insumo":"MAIZ GRANO","precio":230.73},{"fecha":"2026-08-21","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-21","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-21","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-21","insumo":"SILO DE MAIZ","precio":156.8123},{"fecha":"2026-08-21","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-21","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-22","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-22","insumo":"MAIZ GRANO","precio":230.73},{"fecha":"2026-08-22","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-22","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-22","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-22","insumo":"SILO DE MAIZ","precio":156.8123},{"fecha":"2026-08-22","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-22","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-23","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-23","insumo":"MAIZ GRANO","precio":230.73},{"fecha":"2026-08-23","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-23","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-23","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-23","insumo":"SILO DE MAIZ","precio":156.8123},{"fecha":"2026-08-23","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-23","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-24","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-24","insumo":"MAIZ GRANO","precio":233.572},{"fecha":"2026-08-24","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-24","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-24","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-24","insumo":"SILO DE MAIZ","precio":158.6296},{"fecha":"2026-08-24","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-24","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-25","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-25","insumo":"MAIZ GRANO","precio":232.392},{"fecha":"2026-08-25","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-25","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-25","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-25","insumo":"SILO DE MAIZ","precio":157.8751},{"fecha":"2026-08-25","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-25","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-26","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-26","insumo":"MAIZ GRANO","precio":233.892},{"fecha":"2026-08-26","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-26","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-26","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-26","insumo":"SILO DE MAIZ","precio":158.8343},{"fecha":"2026-08-26","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-26","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-27","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-27","insumo":"MAIZ GRANO","precio":233.892},{"fecha":"2026-08-27","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-27","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-27","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-27","insumo":"SILO DE MAIZ","precio":158.8343},{"fecha":"2026-08-27","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-27","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-28","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-28","insumo":"MAIZ GRANO","precio":234.692},{"fecha":"2026-08-28","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-28","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-28","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-28","insumo":"SILO DE MAIZ","precio":159.3458},{"fecha":"2026-08-28","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-28","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-29","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-29","insumo":"MAIZ GRANO","precio":234.692},{"fecha":"2026-08-29","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-29","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-29","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-29","insumo":"SILO DE MAIZ","precio":159.3458},{"fecha":"2026-08-29","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-29","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-30","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-30","insumo":"MAIZ GRANO","precio":234.692},{"fecha":"2026-08-30","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-30","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-30","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-30","insumo":"SILO DE MAIZ","precio":159.3458},{"fecha":"2026-08-30","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-30","insumo":"HARINA GERMEN","precio":305.424},{"fecha":"2026-08-31","insumo":"GLUTEN DE MAIZ","precio":155.1732},{"fecha":"2026-08-31","insumo":"MAIZ GRANO","precio":234.092},{"fecha":"2026-08-31","insumo":"OTROS","precio":0.0},{"fecha":"2026-08-31","insumo":"NUCLEO CONC 5% LDB","precio":482.603},{"fecha":"2026-08-31","insumo":"ROLLO HENO","precio":0.0},{"fecha":"2026-08-31","insumo":"SILO DE MAIZ","precio":158.9622},{"fecha":"2026-08-31","insumo":"HOMINY FEED","precio":0.0},{"fecha":"2026-08-31","insumo":"HARINA GERMEN","precio":305.424}],"stock_sugerido":{}}</script>
+
+<script>
+'use strict';
+/* =====================================================================
+   Hotelería El Haras — app de facturación de hoteleros
+   Un solo archivo. Estado = documento JSON del período (ver esquema abajo).
+   Persistencia: localStorage (modo local) o Supabase (tablas normalizadas).
+   ===================================================================== */
+
+// ---------- utilidades ----------
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const fmtN = (v, d = 0) => { if (v === null || v === undefined || isNaN(v)) return ''; let n = Number(v); if (Math.abs(n) < Math.pow(10, -d) / 2) n = 0; return n.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d }); };
+const fmt$ = v => fmtN(v, 2);
+const fmtPct = v => fmtN(v * 100, 1) + ' %';
+const fmtFecha = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '';
+const fmtMes = mes => { const [y, m] = mes.split('-'); return ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][+m - 1] + ' ' + y; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; };
+const uid = () => Math.random().toString(36).slice(2, 9);
+function diasDelMes(mes) { const [y, m] = mes.split('-').map(Number); const out = []; const d = new Date(Date.UTC(y, m - 1, 1)); while (d.getUTCMonth() === m - 1) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); } return out; }
+function mesSiguiente(mes) { const [y, m] = mes.split('-').map(Number); const d = new Date(Date.UTC(y, m, 1)); return d.toISOString().slice(0, 7); }
+let toastT; function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+function lsGet(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+
+// ---------- esquema del documento de período ----------
+const TRATAMIENTOS = {
+  cierto:    { nombre: 'Alimento cierto',   desc: 'Se le asignan los kilos reales de sus corrales (± ajuste kg/día).' },
+  propio:    { nombre: 'Alimento propio',   desc: 'kg/cab base del día × cabezas del hotelero.' },
+  no_propio: { nombre: 'No propio',         desc: 'kg/cab base del día × (1 + % ajuste) × cabezas.' },
+  residual:  { nombre: 'Residual',          desc: 'Recibe lo que falta para cerrar el total del día (PEGSA).' },
+};
+function periodoVacio(mes) {
+  return {
+    version: 1,
+    periodo: { mes, markup: 0.15, precio_hoteleria: 450, precio_sanidad: 7758, iva: 0.21, estado: 'abierto' },
+    // tipo de precio: fijo (base mensual + % merma) | maiz (cotización de mercado − flete + flete corto, con piso) | silo (fórmula sobre el maíz) | manual (se carga por día)
+    insumos: [
+      { nombre: 'GLUTEN DE MAIZ', humedad: 0.58, tipo: 'fijo', base: 0, merma: 0.05 }, { nombre: 'MAIZ GRANO', humedad: 0.13, tipo: 'maiz' }, { nombre: 'OTROS', humedad: 0, tipo: 'manual' },
+      { nombre: 'NUCLEO CONC 5% LDB', humedad: 0.05, tipo: 'fijo', base: 0, merma: 0.05 }, { nombre: 'ROLLO HENO', humedad: 0.18, tipo: 'manual' }, { nombre: 'SILO DE MAIZ', humedad: 0.49, tipo: 'silo' },
+      { nombre: 'HOMINY FEED', humedad: 0.22, tipo: 'manual' }, { nombre: 'HARINA GERMEN', humedad: 0.01, tipo: 'fijo', base: 0, merma: 0.05 },
+    ],
+    precios_config: {
+      maiz: { flete_largo: 0, flete_corto: 0, piso: 0, cotizaciones: [] },   // cotizaciones: [{fecha, precio_tn}] del mercado (Cañuelas / Rosario), $/tn
+      silo: { adicional: 14.5, rendimiento: 7350, factor: 0.87 },           // silo $/kg = (maíz $/kg + adicional) × rendimiento × factor / 10000
+    },
+    hoteleros: [],      // {id,nombre,razon_social,cuit,tratamiento,ajuste_pct,ajuste_kg,corrales[],stock_inicial,precio_hoteleria(null=general),paga_hoteleria,paga_sanidad,activo}
+    alimentacion: [],   // {fecha,corral,insumo,kg}
+    movimientos: [],    // {fecha,hotelero,tipo:'ingreso'|'egreso'|'mortandad',cabezas,tropa,sanidad,origen:'sistema'|'manual'}
+    precios: [],        // {fecha,insumo,precio}
+    stock_sugerido: {}, // {hotelero_id: cabezas al 1° del mes según WinCampo (solo referencia)}
+  };
+}
+
+// precio de hotelería del hotelero: propio si lo tiene, si no el general del período
+const precioHot = (h, P) => (h.precio_hoteleria !== null && h.precio_hoteleria !== undefined && h.precio_hoteleria !== '') ? +h.precio_hoteleria : P.precio_hoteleria;
+
+// ---------- motor de cálculo ----------
+// Devuelve { dias, res:{hid:{...}}, control:[...] }. Misma lógica que tools/motor_ref.py.
+function calcular(data) {
+  const P = data.periodo, dias = diasDelMes(P.mes);
+  const insumos = data.insumos.map(i => i.nombre);
+  const hots = data.hoteleros.filter(h => h.activo !== false);
+  const byid = Object.fromEntries(hots.map(h => [h.id, h]));
+  const corral2hot = {};
+  hots.filter(h => h.tratamiento === 'cierto').forEach(h => (h.corrales || []).forEach(c => corral2hot[c] = h.id));
+  const tot = {}, cierto = {};
+  dias.forEach(d => { tot[d] = {}; cierto[d] = {}; });
+  for (const a of data.alimentacion) {
+    if (!tot[a.fecha]) continue;
+    tot[a.fecha][a.insumo] = (tot[a.fecha][a.insumo] || 0) + a.kg;
+    const hid = corral2hot[a.corral];
+    if (hid) { const c = cierto[a.fecha][hid] || (cierto[a.fecha][hid] = {}); c[a.insumo] = (c[a.insumo] || 0) + a.kg; }
+  }
+  const precio = {}; data.precios.forEach(p => precio[p.fecha + '|' + p.insumo] = p.precio);
+  const mov = {}; const mv = (h, d) => mov[h + '|' + d] || (mov[h + '|' + d] = { ing: 0, egr: 0, mor: 0, san: 0 });
+  for (const m of data.movimientos) {
+    const r = mv(m.hotelero, m.fecha);
+    if (m.tipo === 'ingreso') { r.ing += m.cabezas; if (m.sanidad) r.san += m.cabezas; }
+    else if (m.tipo === 'egreso') r.egr += m.cabezas; else if (m.tipo === 'mortandad') r.mor += m.cabezas;
+  }
+  const stock = Object.fromEntries(hots.map(h => [h.id, h.stock_inicial || 0]));
+  const res = Object.fromEntries(hots.map(h => [h.id, { h, dias: [], kg: Object.fromEntries(insumos.map(i => [i, 0])), kg_tot: 0, alimento: 0, alimento_ins: Object.fromEntries(insumos.map(i => [i, 0])), hoteleria: 0, sanidad: 0, cab_dias: 0, ingresos: 0, egresos: 0, mortandad: 0, cab_sanidad: 0 }]));
+  const control = []; const mk = 1 + P.markup;
+  for (const d of dias) {
+    for (const h of hots) { const m = mv(h.id, d); stock[h.id] += m.ing - m.egr - m.mor; }
+    const totalDia = Object.values(tot[d]).reduce((a, b) => a + b, 0);
+    const kgH = {};
+    // 1) ciertos
+    for (const h of hots) if (h.tratamiento === 'cierto') {
+      let base = { ...(cierto[d][h.id] || {}) }; const s = Object.values(base).reduce((a, b) => a + b, 0);
+      const adj = +h.ajuste_kg || 0;
+      if (s > 0 && adj) { const f = (s + adj) / s; for (const k in base) base[k] *= f; }
+      kgH[h.id] = base;
+    }
+    const resto = {}; insumos.forEach(i => resto[i] = (tot[d][i] || 0) - Object.values(kgH).reduce((a, k) => a + (k[i] || 0), 0));
+    const restoTot = insumos.reduce((a, i) => a + resto[i], 0);
+    const baseHeads = hots.filter(h => h.tratamiento !== 'cierto').reduce((a, h) => a + stock[h.id], 0);
+    const kgcab = baseHeads ? restoTot / baseHeads : 0;
+    const prop = {}; insumos.forEach(i => prop[i] = restoTot ? resto[i] / restoTot : 0);
+    // 2) propios / no propios
+    for (const h of hots) {
+      let k;
+      if (h.tratamiento === 'propio') k = kgcab * stock[h.id];
+      else if (h.tratamiento === 'no_propio') k = kgcab * (1 + (+h.ajuste_pct || 0)) * stock[h.id];
+      else continue;
+      kgH[h.id] = Object.fromEntries(insumos.map(i => [i, k * prop[i]]));
+    }
+    // 3) residual
+    for (const h of hots) if (h.tratamiento === 'residual')
+      kgH[h.id] = Object.fromEntries(insumos.map(i => [i, resto[i] - Object.entries(kgH).filter(([x]) => x !== h.id && byid[x].tratamiento !== 'cierto').reduce((a, [, k]) => a + (k[i] || 0), 0)]));
+    const asignado = Object.values(kgH).reduce((a, k) => a + Object.values(k).reduce((x, y) => x + y, 0), 0);
+    const porHot = Object.fromEntries(hots.map(h => [h.id, Object.values(kgH[h.id] || {}).reduce((a, b) => a + b, 0)]));
+    control.push({ fecha: d, total: totalDia, asignado, dif: totalDia - asignado, kgcab, cabezas: Object.values(stock).reduce((a, b) => a + b, 0), baseHeads, porHot, stock: { ...stock }, conDatos: totalDia > 0 });
+    for (const h of hots) {
+      const r = res[h.id], kg = kgH[h.id] || {}, m = mv(h.id, d);
+      const kgt = Object.values(kg).reduce((a, b) => a + b, 0);
+      let ali = 0; for (const i of insumos) { const v = (kg[i] || 0) * (precio[d + '|' + i] || 0) * mk; ali += v; r.alimento_ins[i] += v; r.kg[i] += kg[i] || 0; }
+      const hot = h.paga_hoteleria !== false ? stock[h.id] * precioHot(h, P) : 0;
+      const san = h.paga_sanidad !== false ? m.san * P.precio_sanidad * mk : 0;
+      r.kg_tot += kgt; r.alimento += ali; r.hoteleria += hot; r.sanidad += san; r.cab_dias += stock[h.id];
+      r.ingresos += m.ing; r.egresos += m.egr; r.mortandad += m.mor; r.cab_sanidad += m.san;
+      r.dias.push({ fecha: d, stock: stock[h.id], ing: m.ing, egr: m.egr, mor: m.mor, kg: kgt, kgcab: stock[h.id] ? kgt / stock[h.id] : 0, alimento: ali, hoteleria: hot, sanidad: san, kgIns: kg });
+    }
+  }
+  for (const r of Object.values(res)) {
+    r.stock_final = r.dias.length ? r.dias[r.dias.length - 1].stock : r.h.stock_inicial;
+    r.stock_prom = r.cab_dias / dias.length;
+    r.subtotal = r.alimento + r.hoteleria + r.sanidad;
+    r.iva = r.subtotal * P.iva; r.total = r.subtotal + r.iva;
+    r.kgcab = r.cab_dias ? r.kg_tot / r.cab_dias : 0;
+    r.precio_racion = r.kg_tot ? r.alimento / r.kg_tot : 0;
+    const hum = data.insumos.reduce((a, i) => a + (r.kg[i.nombre] || 0) * (i.humedad || 0), 0);
+    r.ms = r.kg_tot ? 1 - hum / r.kg_tot : 0;
+  }
+  return { dias, res, control, insumos };
+}
+
+// ---------- precios diarios a partir de la configuración ----------
+// Regenera data.precios para los insumos con tipo fijo/maiz/silo; los de tipo manual se conservan.
+function precioMaizDia(cfg, fecha, prev) {
+  const cot = (cfg.cotizaciones || []).filter(c => c.fecha && c.precio_tn > 0).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  if (!cot.length) return prev ?? (cfg.piso || 0);
+  let q = null; for (const c of cot) { if (c.fecha <= fecha) q = c; else break; }
+  if (!q) q = cot[0];                              // antes de la primera cotización del mes se usa la primera (como la planilla)
+  const p = (q.precio_tn - (cfg.flete_largo || 0) + (cfg.flete_corto || 0)) / 1000;
+  return Math.max(p, cfg.piso || 0);
+}
+function recalcPrecios(data) {
+  const dias = diasDelMes(data.periodo.mes); const pc = data.precios_config || (data.precios_config = periodoVacio(data.periodo.mes).precios_config);
+  const manual = {}; data.precios.forEach(p => manual[p.fecha + '|' + p.insumo] = p.precio);
+  const out = []; const maiz = {}; let prev = null;
+  for (const d of dias) { prev = precioMaizDia(pc.maiz || {}, d, prev); maiz[d] = prev; }
+  const sc = pc.silo || {}; const coef = (sc.rendimiento || 0) * (sc.factor || 0) / 10000;
+  for (const i of data.insumos) {
+    const t = i.tipo || 'manual';
+    for (const d of dias) {
+      let v;
+      if (t === 'fijo') v = (i.base || 0) * (1 + (i.merma || 0));
+      else if (t === 'maiz') v = maiz[d];
+      else if (t === 'silo') v = (maiz[d] + (sc.adicional || 0)) * coef;
+      else { v = manual[d + '|' + i.nombre]; if (v === undefined) continue; }
+      out.push({ fecha: d, insumo: i.nombre, precio: Math.round(v * 10000) / 10000 });
+    }
+  }
+  data.precios = out;
+}
+const TIPOS_PRECIO = { fijo: 'Fijo mensual + merma', maiz: 'Maíz (cotización)', silo: 'Silo (fórmula sobre maíz)', manual: 'Manual por día' };
+
+// ---------- estado y persistencia local ----------
+const LS_KEY = 'hoteleria.periodos.v1', LS_CFG = 'hoteleria.config.v1';
+const state = {
+  periodos: lsGet(LS_KEY, {}),         // mes -> documento
+  mes: null, data: null, calc: null, tab: 'control',
+  cfg: Object.assign({ modo: 'supabase', sbUrl: 'https://xqcipsnyvnozkvehpzsk.supabase.co', sbKey: 'sb_publishable_3KDY3ojS6VUHhQCUrfxKQg_JRUS7PMu', syncUrl: 'http://localhost:8766' }, lsGet(LS_CFG, {})),
+  sb: null, user: null, dirty: false, filtroHot: '', liqHot: '', liqDetalle: false,
+};
+function setData(doc) { state.data = doc; state.mes = doc.periodo.mes; state.periodos[state.mes] = doc; recalc(); }
+function recalc() { state.calc = calcular(state.data); actualizarPills(); }
+function marcar() { state.dirty = true; recalc(); guardarLocal(true); state.dirty = true; actualizarPills(); }
+function guardarLocal(silencioso) { const ok = lsSet(LS_KEY, state.periodos); if (!silencioso) toast(ok ? 'Guardado en este navegador' : 'No se pudo guardar en el navegador'); if (ok) state.dirty = false; actualizarPills(); }
+function cargarDemo() {
+  try { const raw = $('#demo-data').textContent.trim(); if (!raw || raw.startsWith('__')) return null; return JSON.parse(raw); } catch (e) { return null; }
+}
+function actualizarPills() {
+  const c = state.calc; const maxDif = Math.max(0, ...c.control.map(x => Math.abs(x.dif)));
+  const conDatos = c.control.filter(x => x.conDatos).length;
+  const p = $('#pillCierre'); p.className = 'pill ' + (conDatos === 0 ? 'warn' : maxDif < 0.01 ? 'ok' : 'bad');
+  p.textContent = conDatos === 0 ? 'Sin datos de alimentación' : maxDif < 0.01 ? `Cierre diario OK · ${conDatos} días` : `Cierre con diferencia ${fmtN(maxDif, 1)} kg`;
+  const m = $('#pillModo'); m.className = 'pill ' + (state.cfg.modo === 'supabase' ? (state.user ? 'ok' : 'warn') : '');
+  m.textContent = state.cfg.modo === 'supabase' ? (state.user ? `Supabase · ${state.user.email}` : 'Supabase · sin sesión') : 'Modo local';
+  $('#btnGuardar').textContent = state.dirty ? 'Guardar •' : 'Guardar';
+}
+</script>
+
+<script>
+// ---------- render general ----------
+function render() {
+  $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
+  const main = $('#main'); main.innerHTML = '';
+  const fn = { control: renderControl, hoteleros: renderHoteleros, parametros: renderParametros, movimientos: renderMovimientos, alimentacion: renderAlimentacion, liquidaciones: renderLiquidaciones, datos: renderDatos }[state.tab];
+  fn(main);
+  renderSelPeriodo();
+}
+function renderSelPeriodo() {
+  const sel = $('#selPeriodo'); const meses = Object.keys(state.periodos).sort();
+  sel.innerHTML = meses.map(m => `<option value="${m}" ${m === state.mes ? 'selected' : ''}>${fmtMes(m)}</option>`).join('');
+}
+function hotNombre(id) { const h = state.data.hoteleros.find(x => x.id === id); return h ? h.nombre : id; }
+function hotsActivos() { return state.data.hoteleros.filter(h => h.activo !== false); }
+
+// ---------- 1. Control del mes ----------
+function renderControl(main) {
+  const c = state.calc, P = state.data.periodo, hots = hotsActivos();
+  const diasCon = c.control.filter(x => x.conDatos);
+  const totalKg = c.control.reduce((a, x) => a + x.total, 0);
+  const cabProm = diasCon.length ? diasCon.reduce((a, x) => a + x.baseHeads, 0) / diasCon.length : 0;
+  const kgcabProm = diasCon.length ? diasCon.reduce((a, x) => a + x.kgcab, 0) / diasCon.length : 0;
+  const maxDif = Math.max(0, ...c.control.map(x => Math.abs(x.dif)));
+  const totFact = Object.values(c.res).reduce((a, r) => a + r.subtotal, 0);
+  const resid = hots.filter(h => h.tratamiento === 'residual');
+  let avisos = '';
+  if (resid.length !== 1) avisos += `<div class="note warn">Tiene que haber exactamente un hotelero con tratamiento <b>Residual</b> para que el total del día cierre (hay ${resid.length}).</div>`;
+  const corralesDoc = new Set(state.data.alimentacion.map(a => a.corral));
+  const corralesAsig = new Set(hots.filter(h => h.tratamiento === 'cierto').flatMap(h => h.corrales || []));
+  const huerfanos = [...corralesAsig].filter(x => !corralesDoc.has(x));
+  if (huerfanos.length) avisos += `<div class="note warn">Corrales asignados a hoteleros ciertos sin kilos en el mes: ${huerfanos.map(esc).join(', ')}.</div>`;
+  const negativos = c.control.filter(x => hots.some(h => (x.porHot[h.id] || 0) < -0.01));
+  if (negativos.length) avisos += `<div class="note warn">Hay ${negativos.length} día(s) en que el residual queda negativo: los corrales ciertos o los ajustes superan lo alimentado.</div>`;
+
+  main.innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="l">Kg alimentados</div><div class="v">${fmtN(totalKg)} <small>kg TC</small></div></div>
+    <div class="kpi"><div class="l">Cabezas promedio (base)</div><div class="v">${fmtN(cabProm)}</div></div>
+    <div class="kpi"><div class="l">kg/cab/día base</div><div class="v">${fmtN(kgcabProm, 2)}</div></div>
+    <div class="kpi ${maxDif < 0.01 ? 'ok' : 'bad'}"><div class="l">Máx. diferencia diaria</div><div class="v">${fmtN(maxDif, 2)} <small>kg</small></div></div>
+    <div class="kpi"><div class="l">Total a facturar (neto)</div><div class="v">$ ${fmtN(totFact)}</div></div>
+    <div class="kpi"><div class="l">Días con alimentación</div><div class="v">${diasCon.length} <small>/ ${c.dias.length}</small></div></div>
+  </div>
+  ${avisos}
+  <div class="panel"><header><h2>Resumen por hotelero</h2><span class="sub">${fmtMes(P.mes)} · markup ${fmtPct(P.markup)} · hotelería $ ${fmtN(P.precio_hoteleria)}/cab/día · sanidad $ ${fmtN(P.precio_sanidad)}/cab ingresada</span></header>
+  <div class="tablewrap"><table><thead><tr><th>Hotelero</th><th>Tratamiento</th><th class="n">Stock ini.</th><th class="n">Stock fin</th><th class="n">Cab. prom.</th><th class="n">Kg TC</th><th class="n">kg/cab/día</th><th class="n">$ Alimento</th><th class="n">$ Hotelería</th><th class="n">$ Sanidad</th><th class="n">Subtotal</th><th class="n">IVA</th><th class="n">Total</th><th class="n">$/cab/día</th></tr></thead><tbody>
+  ${hots.map(h => { const r = c.res[h.id]; return `<tr><td><b>${esc(h.nombre)}</b></td><td><span class="tag ${h.tratamiento}">${TRATAMIENTOS[h.tratamiento].nombre}</span>${h.tratamiento === 'no_propio' ? ` <span class="muted small">${fmtPct(h.ajuste_pct || 0)}</span>` : ''}${h.tratamiento === 'cierto' ? ` <span class="muted small">${(h.corrales || []).join(', ')}${h.ajuste_kg ? ` · ${h.ajuste_kg > 0 ? '+' : ''}${h.ajuste_kg} kg/d` : ''}</span>` : ''}</td>
+    <td class="n">${fmtN(h.stock_inicial)}</td><td class="n">${fmtN(r.stock_final)}</td><td class="n">${fmtN(r.stock_prom, 1)}</td><td class="n">${fmtN(r.kg_tot)}</td><td class="n">${fmtN(r.kgcab, 2)}</td><td class="n">${fmtN(r.alimento)}</td><td class="n">${fmtN(r.hoteleria)}</td><td class="n">${fmtN(r.sanidad + r.tratamientos)}</td><td class="n">${fmtN(r.subtotal)}</td><td class="n">${fmtN(r.iva)}</td><td class="n"><b>${fmtN(r.total)}</b></td><td class="n">${fmtN(r.cab_dias ? r.subtotal / r.cab_dias : 0)}</td></tr>`; }).join('')}
+  <tr class="total"><td colspan="5">Total</td><td class="n">${fmtN(Object.values(c.res).reduce((a, r) => a + r.kg_tot, 0))}</td><td></td><td class="n">${fmtN(Object.values(c.res).reduce((a, r) => a + r.alimento, 0))}</td><td class="n">${fmtN(Object.values(c.res).reduce((a, r) => a + r.hoteleria, 0))}</td><td class="n">${fmtN(Object.values(c.res).reduce((a, r) => a + r.sanidad + r.tratamientos, 0))}</td><td class="n">${fmtN(totFact)}</td><td class="n">${fmtN(totFact * P.iva)}</td><td class="n">${fmtN(totFact * (1 + P.iva))}</td><td></td></tr>
+  </tbody></table></div></div>
+  <div class="panel"><header><h2>Cierre diario</h2><span class="sub">Kilos alimentados vs. kilos asignados a hoteleros. La diferencia tiene que ser 0 todos los días.</span></header>
+  <div class="tablewrap"><table><thead><tr><th>Fecha</th><th class="n">Kg total</th><th class="n">Cab. total</th><th class="n">Cab. base</th><th class="n">kg/cab base</th>${hots.map(h => `<th class="n">${esc(h.nombre)}</th>`).join('')}<th class="n">Asignado</th><th class="n">Dif.</th></tr></thead><tbody>
+  ${c.control.map(x => `<tr class="${x.conDatos ? '' : 'sub'}"><td>${fmtFecha(x.fecha)}</td><td class="n">${fmtN(x.total)}</td><td class="n">${fmtN(x.cabezas)}</td><td class="n">${fmtN(x.baseHeads)}</td><td class="n">${fmtN(x.kgcab, 2)}</td>${hots.map(h => `<td class="n ${(x.porHot[h.id] || 0) < -0.01 ? 'bad' : ''}">${fmtN(x.porHot[h.id])}</td>`).join('')}<td class="n">${fmtN(x.asignado)}</td><td class="n ${Math.abs(x.dif) < 0.01 ? 'ok' : 'bad'}">${fmtN(x.dif, 1)}</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+// ---------- 2. Hoteleros ----------
+function renderHoteleros(main) {
+  const hots = state.data.hoteleros, P = state.data.periodo, sug = state.data.stock_sugerido || {}; const corrales = [...new Set(state.data.alimentacion.map(a => a.corral))].sort();
+  main.innerHTML = `
+  <div class="panel"><header><h2>Padrón de hoteleros y tratamiento</h2><span class="sub">El tratamiento define cómo se le asignan los kilos del día. El stock inicial es el del 1° del mes (antes de los movimientos): lo fijás vos; el sugerido viene de WinCampo al tomar información. Hotelería en blanco = precio general del mes.</span>
+  <span class="spacer"></span><button id="btnAddHot" class="small">+ Hotelero</button></header>
+  <div class="tablewrap"><table><thead><tr><th>Activo</th><th>Nombre</th><th>Razón social</th><th>CUIT</th><th>Tratamiento</th><th>Ajuste</th><th>Corrales (cierto)</th><th class="n">Stock inicial</th><th class="n">Sugerido sistema</th><th class="n">Hotelería $/cab/día</th><th>Paga hotelería</th><th>Paga sanidad</th><th></th></tr></thead><tbody>
+  ${hots.map((h, i) => `<tr data-i="${i}">
+    <td><input type="checkbox" data-f="activo" ${h.activo !== false ? 'checked' : ''}></td>
+    <td><input data-f="nombre" value="${esc(h.nombre)}" style="width:9em"></td>
+    <td><input data-f="razon_social" value="${esc(h.razon_social || '')}" style="width:13em"></td>
+    <td><input data-f="cuit" value="${esc(h.cuit || '')}" style="width:9em"></td>
+    <td><select data-f="tratamiento">${Object.entries(TRATAMIENTOS).map(([k, t]) => `<option value="${k}" ${h.tratamiento === k ? 'selected' : ''}>${t.nombre}</option>`).join('')}</select></td>
+    <td>${h.tratamiento === 'no_propio' ? `<input type="number" step="0.5" data-f="ajuste_pct_ui" value="${((h.ajuste_pct || 0) * 100).toFixed(1)}" style="width:5em"> %` : h.tratamiento === 'cierto' ? `<input type="number" step="10" data-f="ajuste_kg" value="${h.ajuste_kg || 0}" style="width:6em"> kg/día` : '<span class="muted">—</span>'}</td>
+    <td>${h.tratamiento === 'cierto' ? `<input data-f="corrales_ui" list="dlCorrales" value="${esc((h.corrales || []).join(', '))}" placeholder="CORRAL 12, CORRAL 13" style="width:14em">` : '<span class="muted">—</span>'}</td>
+    <td class="n"><input type="number" class="cab" data-f="stock_inicial" value="${h.stock_inicial || 0}"></td>
+    <td class="n">${sug[h.id] !== undefined ? `${fmtN(sug[h.id])} ${sug[h.id] !== (h.stock_inicial || 0) ? `<button class="small" data-usar="${i}" title="Copiar el sugerido al stock inicial">usar</button>` : ''}` : '<span class="muted">—</span>'}</td>
+    <td class="n"><input type="number" step="1" data-f="precio_hoteleria" value="${h.precio_hoteleria ?? ''}" placeholder="${P.precio_hoteleria}" title="Vacío = precio general del mes"></td>
+    <td><input type="checkbox" data-f="paga_hoteleria" ${h.paga_hoteleria !== false ? 'checked' : ''}></td>
+    <td><input type="checkbox" data-f="paga_sanidad" ${h.paga_sanidad !== false ? 'checked' : ''}></td>
+    <td><button class="small danger" data-del="${i}" title="Quitar del padrón">✕</button></td></tr>`).join('')}
+  </tbody></table></div>
+  <datalist id="dlCorrales">${corrales.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+  <p class="small muted" style="margin:10px 0 0">Corrales con kilos cargados este mes: ${corrales.length ? corrales.map(esc).join(', ') : 'ninguno'}. En un hotelero cierto, separá los corrales con coma.</p></div>
+  <div class="grid2">${Object.entries(TRATAMIENTOS).map(([k, t]) => `<div class="panel"><span class="tag ${k}">${t.nombre}</span><p class="small" style="margin:8px 0 0">${t.desc}</p></div>`).join('')}</div>`;
+  $('#btnAddHot').onclick = () => { hots.push({ id: 'H' + uid().toUpperCase(), nombre: 'NUEVO', razon_social: '', cuit: '', tratamiento: 'propio', ajuste_pct: 0, ajuste_kg: 0, corrales: [], stock_inicial: 0, precio_hoteleria: null, paga_hoteleria: true, paga_sanidad: true, activo: true }); marcar(); render(); };
+  $$('tr[data-i]', main).forEach(tr => {
+    const h = hots[+tr.dataset.i];
+    $$('[data-f]', tr).forEach(inp => inp.onchange = () => {
+      const f = inp.dataset.f;
+      if (inp.type === 'checkbox') h[f] = inp.checked;
+      else if (f === 'ajuste_pct_ui') h.ajuste_pct = num(inp.value) / 100;
+      else if (f === 'corrales_ui') h.corrales = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+      else if (f === 'precio_hoteleria') h.precio_hoteleria = inp.value.trim() === '' ? null : num(inp.value);
+      else if (inp.type === 'number') h[f] = num(inp.value);
+      else h[f] = inp.value.trim();
+      marcar(); if (f === 'tratamiento') render();
+    });
+  });
+  $$('[data-usar]', main).forEach(b => b.onclick = () => { const h = hots[+b.dataset.usar]; h.stock_inicial = sug[h.id]; marcar(); render(); });
+  $$('[data-del]', main).forEach(b => b.onclick = () => { const h = hots[+b.dataset.del]; if (b.dataset.conf) { hots.splice(+b.dataset.del, 1); marcar(); render(); } else { b.textContent = `Quitar ${h.nombre}?`; b.dataset.conf = '1'; } });
+}
+
+// ---------- 3. Parámetros y precios ----------
+function renderParametros(main) {
+  const P = state.data.periodo, ins = state.data.insumos, dias = state.calc.dias;
+  const pc = state.data.precios_config || (state.data.precios_config = periodoVacio(P.mes).precios_config);
+  pc.maiz = pc.maiz || { flete_largo: 0, flete_corto: 0, piso: 0, cotizaciones: [] }; pc.silo = pc.silo || { adicional: 14.5, rendimiento: 7350, factor: 0.87 };
+  const precio = {}; state.data.precios.forEach(p => precio[p.fecha + '|' + p.insumo] = p.precio);
+  const prom = i => { const v = dias.map(d => precio[d + '|' + i]).filter(x => x !== undefined); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const cots = (pc.maiz.cotizaciones || []).slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const coef = (pc.silo.rendimiento || 0) * (pc.silo.factor || 0) / 10000;
+  const imp = state.impCot; // estado de la importación en curso {rows, hdr, colFecha, colPrecio}
+  main.innerHTML = `
+  <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+  <div class="panel" style="flex:1"><header><h2>Parámetros del mes</h2></header><div class="row">
+    <label>Markup sobre costo % <input type="number" step="0.5" id="pMarkup" value="${(P.markup * 100).toFixed(1)}"></label>
+    <label>Hotelería $/cab/día <input type="number" step="1" id="pHot" value="${P.precio_hoteleria}"></label>
+    <label>Sanidad $/cab ingresada (costo) <input type="number" step="1" id="pSan" value="${P.precio_sanidad}"></label>
+    <label>IVA % <input type="number" step="0.5" id="pIva" value="${(P.iva * 100).toFixed(1)}"></label>
+    <label>Estado <select id="pEstado"><option ${P.estado === 'abierto' ? 'selected' : ''}>abierto</option><option ${P.estado === 'cerrado' ? 'selected' : ''}>cerrado</option></select></label>
+  </div><p class="small muted" style="margin:10px 0 0">El markup se aplica al alimento y a la sanidad de ingreso. La hotelería se cobra al precio indicado sin markup (o al propio del hotelero si lo tiene).</p></div>
+  <div class="panel"><header><h2>Insumos: humedad y forma de precio</h2><span class="spacer"></span><button class="small" id="btnAddIns">+ Insumo</button></header>
+  <div class="tablewrap"><table><thead><tr><th>Insumo</th><th class="n">Humedad %</th><th>Precio</th><th class="n">Base $/kg</th><th class="n">Merma %</th><th class="n">Promedio mes $/kg</th><th class="n">Kg del mes</th><th></th></tr></thead><tbody>
+  ${ins.map((i, k) => { const kg = state.data.alimentacion.filter(a => a.insumo === i.nombre).reduce((a, b) => a + b.kg, 0); const t = i.tipo || 'manual'; return `<tr data-k="${k}"><td><input data-f="nombre" value="${esc(i.nombre)}" style="width:13em"></td><td class="n"><input type="number" step="1" data-f="humedad_ui" value="${((i.humedad || 0) * 100).toFixed(0)}" style="width:4.5em"></td>
+    <td><select data-f="tipo">${Object.entries(TIPOS_PRECIO).map(([v, n]) => `<option value="${v}" ${t === v ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
+    <td class="n">${t === 'fijo' ? `<input type="number" step="0.01" data-f="base" value="${i.base || 0}">` : '—'}</td>
+    <td class="n">${t === 'fijo' ? `<input type="number" step="0.5" data-f="merma_ui" value="${((i.merma || 0) * 100).toFixed(1)}" style="width:4.5em">` : '—'}</td>
+    <td class="n">${prom(i.nombre) !== null ? fmtN(prom(i.nombre), 2) : '<span class="muted">sin precio</span>'}</td><td class="n">${fmtN(kg)}</td><td>${kg ? '' : `<button class="small danger" data-delins="${k}">✕</button>`}</td></tr>`; }).join('')}
+  </tbody></table></div>
+  <p class="small muted" style="margin:8px 0 0">Fijo: precio base del mes × (1 + merma). Maíz: (cotización del día − valor a restar + valor a sumar) ÷ 1000, con piso; los días sin cotización repiten la última. Silo: (maíz + adicional) × rendimiento × factor ÷ 10.000.</p></div>
+  </div>
+  <div class="grid2">
+  <div class="panel"><header><h2>Maíz: cotización de mercado</h2><span class="sub">$/tn. Importá el Excel del Mercado de Cañuelas o cargá a mano.</span><span class="spacer"></span>
+    <button class="small" id="btnImpCot">Importar Excel/CSV</button><input type="file" id="fileCot" accept=".xlsx,.xls,.csv" hidden><button class="small" id="btnAddCot">+ Fila</button></header>
+    <div class="row" style="margin-bottom:8px">
+      <label>Valor a restar $/tn <input type="number" step="1" id="mFleteL" value="${pc.maiz.flete_largo || 0}"></label>
+      <label>Valor a sumar $/tn <input type="number" step="1" id="mFleteC" value="${pc.maiz.flete_corto || 0}"></label>
+      <label>Piso $/kg <input type="number" step="0.01" id="mPiso" value="${pc.maiz.piso || 0}"></label>
+    </div>
+    ${imp ? `<div class="note" style="margin-bottom:8px"><b>Importación:</b> ${imp.rows.length} filas leídas de <i>${esc(imp.nombre)}</i>. Elegí las columnas:
+      <div class="row" style="margin-top:6px"><label>Columna fecha <select id="impFecha">${imp.hdr.map((h, k) => `<option value="${k}" ${k === imp.colFecha ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></label>
+      <label>Columna precio $/tn <select id="impPrecio">${imp.hdr.map((h, k) => `<option value="${k}" ${k === imp.colPrecio ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></label>
+      <button class="primary small" id="impAplicar">Aplicar (${imp.previa.length} del mes)</button><button class="small" id="impCancel">Cancelar</button></div>
+      <div class="small muted" style="margin-top:4px">Vista previa: ${imp.previa.slice(0, 6).map(c => `${fmtFecha(c.fecha)} → ${fmtN(c.precio_tn)}`).join(' · ')}${imp.previa.length > 6 ? ' …' : ''}${imp.previa.length ? '' : ' (ninguna fila cae en ' + fmtMes(P.mes) + ')'}</div></div>` : ''}
+    <div class="tablewrap"><table><thead><tr><th>Fecha</th><th class="n">Cotización $/tn</th><th class="n">Maíz resultante $/kg</th><th></th></tr></thead><tbody>
+    ${cots.map(c => { const k = pc.maiz.cotizaciones.indexOf(c); return `<tr data-c="${k}"><td><select data-f="fecha">${dias.map(d => `<option value="${d}" ${d === c.fecha ? 'selected' : ''}>${fmtFecha(d)}</option>`).join('')}</select></td><td class="n"><input type="number" step="10" data-f="precio_tn" value="${c.precio_tn}"></td><td class="n">${fmtN(precioMaizDia(pc.maiz, c.fecha, null), 2)}</td><td><button class="small danger" data-delcot="${k}">✕</button></td></tr>`; }).join('') || '<tr><td colspan="4" class="muted">Sin cotizaciones: el maíz queda al piso.</td></tr>'}
+    </tbody></table></div></div>
+  <div class="panel"><header><h2>Silo de maíz: fórmula</h2><span class="sub">Precio del día = (maíz $/kg + adicional) × rendimiento × factor ÷ 10.000</span></header>
+    <div class="row"><label>Adicional al maíz $/kg <input type="number" step="0.5" id="sAdic" value="${pc.silo.adicional}"></label><label>Rendimiento <input type="number" step="10" id="sRend" value="${pc.silo.rendimiento}"></label><label>Factor <input type="number" step="0.01" id="sFactor" value="${pc.silo.factor}"></label></div>
+    <p class="small muted" style="margin:8px 0 0">Coeficiente resultante ${fmtN(coef, 5)}: con maíz a $ ${fmtN(precioMaizDia(pc.maiz, dias[0], null), 2)} el silo vale $ ${fmtN((precioMaizDia(pc.maiz, dias[0], null) + (pc.silo.adicional || 0)) * coef, 2)}/kg.</p></div>
+  </div>
+  <div class="panel"><header><h2>Precios diarios por insumo ($/kg TC, costo)</h2><span class="sub">Calculados con la configuración de arriba; solo las columnas «manual» se editan acá.</span></header>
+  <div class="tablewrap"><table><thead><tr><th>Fecha</th>${ins.map(i => `<th class="n">${esc(i.nombre)}<br><span class="muted" style="font-weight:400;text-transform:none;letter-spacing:0">${TIPOS_PRECIO[i.tipo || 'manual']}</span></th>`).join('')}</tr></thead><tbody>
+  ${dias.map(d => `<tr><td>${fmtFecha(d)}</td>${ins.map(i => (i.tipo || 'manual') === 'manual' ? `<td class="n"><input type="number" step="0.01" data-p="${d}|${esc(i.nombre)}" value="${precio[d + '|' + i.nombre] ?? ''}"></td>` : `<td class="n">${fmtN(precio[d + '|' + i.nombre], 2)}</td>`).join('')}</tr>`).join('')}
+  <tr class="total"><td>Promedio</td>${ins.map(i => `<td class="n">${prom(i.nombre) !== null ? fmtN(prom(i.nombre), 2) : ''}</td>`).join('')}</tr>
+  </tbody></table></div></div>`;
+  const upd = () => { recalcPrecios(state.data); marcar(); render(); };
+  $('#pMarkup').onchange = e => { P.markup = num(e.target.value) / 100; marcar(); };
+  $('#pHot').onchange = e => { P.precio_hoteleria = num(e.target.value); marcar(); };
+  $('#pSan').onchange = e => { P.precio_sanidad = num(e.target.value); marcar(); };
+  $('#pIva').onchange = e => { P.iva = num(e.target.value) / 100; marcar(); };
+  $('#pEstado').onchange = e => { P.estado = e.target.value; marcar(); };
+  $('#btnAddIns').onclick = () => { ins.push({ nombre: 'NUEVO INSUMO', humedad: 0, tipo: 'fijo', base: 0, merma: 0 }); upd(); };
+  $$('tr[data-k]', main).forEach(tr => { const i = ins[+tr.dataset.k]; $$('[data-f]', tr).forEach(inp => inp.onchange = () => {
+    const f = inp.dataset.f;
+    if (f === 'humedad_ui') i.humedad = num(inp.value) / 100;
+    else if (f === 'merma_ui') i.merma = num(inp.value) / 100;
+    else if (f === 'base') i.base = num(inp.value);
+    else if (f === 'tipo') { i.tipo = inp.value; if (i.tipo === 'fijo' && i.base === undefined) i.base = 0; }
+    else { const old = i.nombre; i.nombre = inp.value.trim(); state.data.precios.forEach(p => { if (p.insumo === old) p.insumo = i.nombre; }); state.data.alimentacion.forEach(a => { if (a.insumo === old) a.insumo = i.nombre; }); }
+    upd(); }); });
+  $$('[data-delins]', main).forEach(b => b.onclick = () => { const n = ins[+b.dataset.delins].nombre; ins.splice(+b.dataset.delins, 1); state.data.precios = state.data.precios.filter(p => p.insumo !== n); upd(); });
+  $('#mFleteL').onchange = e => { pc.maiz.flete_largo = num(e.target.value); upd(); };
+  $('#mFleteC').onchange = e => { pc.maiz.flete_corto = num(e.target.value); upd(); };
+  $('#mPiso').onchange = e => { pc.maiz.piso = num(e.target.value); upd(); };
+  $('#sAdic').onchange = e => { pc.silo.adicional = num(e.target.value); upd(); };
+  $('#sRend').onchange = e => { pc.silo.rendimiento = num(e.target.value); upd(); };
+  $('#sFactor').onchange = e => { pc.silo.factor = num(e.target.value); upd(); };
+  $('#btnAddCot').onclick = () => { pc.maiz.cotizaciones.push({ fecha: dias[0], precio_tn: 0 }); upd(); };
+  $$('tr[data-c]', main).forEach(tr => { const c = pc.maiz.cotizaciones[+tr.dataset.c]; $$('[data-f]', tr).forEach(inp => inp.onchange = () => { c[inp.dataset.f] = inp.type === 'number' ? num(inp.value) : inp.value; upd(); }); });
+  $$('[data-delcot]', main).forEach(b => b.onclick = () => { pc.maiz.cotizaciones.splice(+b.dataset.delcot, 1); upd(); });
+  $$('[data-p]', main).forEach(inp => inp.onchange = () => { const [d, i] = inp.dataset.p.split('|'); const row = state.data.precios.find(p => p.fecha === d && p.insumo === i); if (row) row.precio = num(inp.value); else state.data.precios.push({ fecha: d, insumo: i, precio: num(inp.value) }); marcar(); });
+  $('#btnImpCot').onclick = () => $('#fileCot').click();
+  $('#fileCot').onchange = e => leerCotizaciones(e.target.files[0]);
+  if (imp) {
+    const reev = () => { imp.colFecha = +$('#impFecha').value; imp.colPrecio = +$('#impPrecio').value; imp.previa = previaCotizaciones(imp); render(); };
+    $('#impFecha').onchange = reev; $('#impPrecio').onchange = reev;
+    $('#impCancel').onclick = () => { state.impCot = null; render(); };
+    $('#impAplicar').onclick = () => { const nuevas = imp.previa; const otras = pc.maiz.cotizaciones.filter(c => !nuevas.some(n => n.fecha === c.fecha)); pc.maiz.cotizaciones = otras.concat(nuevas); state.impCot = null; upd(); toast(`${nuevas.length} cotizaciones importadas`); };
+  }
+}
+// lee un Excel/CSV de cotizaciones y prepara la elección de columnas
+function leerCotizaciones(file) {
+  if (!file) return;
+  if (typeof XLSX === 'undefined') { toast('La librería de Excel no cargó (sin conexión).'); return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    let rows;
+    try { const wb = XLSX.read(rd.result, { type: 'array', cellDates: true }); rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null }); }
+    catch (e) { toast('No se pudo leer el archivo: ' + e.message); return; }
+    rows = rows.filter(r => r.some(v => v !== null && v !== ''));
+    if (!rows.length) { toast('El archivo está vacío'); return; }
+    // encabezado = primera fila con 2+ celdas de texto; si no hay, columnas A, B, C…
+    let hi = rows.findIndex(r => r.filter(v => typeof v === 'string' && v.trim()).length >= 2); if (hi < 0) hi = -1;
+    const ncol = Math.max(...rows.map(r => r.length));
+    const hdr = Array.from({ length: ncol }, (_, k) => (hi >= 0 && rows[hi][k] != null && String(rows[hi][k]).trim()) ? String(rows[hi][k]).trim() : 'Columna ' + String.fromCharCode(65 + k));
+    const body = rows.slice(hi + 1);
+    const score = k => ({ f: body.filter(r => fechaDe(r[k])).length, p: body.filter(r => { const n = numDe(r[k]); return n !== null && n > 1000; }).length });
+    const sc = hdr.map((_, k) => score(k));
+    const colFecha = sc.reduce((b, s, k) => s.f > sc[b].f ? k : b, 0);
+    const colPrecio = sc.reduce((b, s, k) => (k !== colFecha && s.p > (b < 0 ? -1 : sc[b].p)) ? k : b, -1);
+    state.impCot = { nombre: file.name, rows: body, hdr, colFecha, colPrecio: colPrecio < 0 ? (colFecha === 0 ? 1 : 0) : colPrecio };
+    state.impCot.previa = previaCotizaciones(state.impCot); render();
+  };
+  rd.readAsArrayBuffer(file);
+}
+function previaCotizaciones(imp) {
+  const mes = state.data.periodo.mes, out = {};
+  imp.rows.forEach(r => { const f = fechaDe(r[imp.colFecha]), p = numDe(r[imp.colPrecio]); if (f && p !== null && p > 0 && f.startsWith(mes)) out[f] = p; });
+  return Object.entries(out).map(([fecha, precio_tn]) => ({ fecha, precio_tn })).sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+function fechaDe(v) {
+  if (v instanceof Date && !isNaN(v)) return new Date(v.getTime() - v.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  if (typeof v === 'number' && v > 30000 && v < 80000) { const d = new Date(Math.round((v - 25569) * 86400000)); return d.toISOString().slice(0, 10); }
+  if (typeof v === 'string') { let m = v.trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; } m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[0]; }
+  return null;
+}
+function numDe(v) { if (typeof v === 'number') return isNaN(v) ? null : v; if (typeof v === 'string') { const s = v.replace(/[$\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'); const n = parseFloat(s); return isNaN(n) ? null : n; } return null; }
+
+// ---------- 4. Movimientos ----------
+// Cuadro editable por hotelero (ingresos / egresos / mortandad por día, como las hojas de la planilla)
+// + detalle de movimientos (tropas) para el hotelero elegido.
+function renderMovimientos(main) {
+  const hots = hotsActivos(), c = state.calc, movs = state.data.movimientos;
+  if (!hots.length) { main.innerHTML = '<div class="panel muted">Cargá hoteleros primero.</div>'; return; }
+  if (!hots.some(h => h.id === state.filtroHot)) state.filtroHot = hots[0].id;
+  const h = hots.find(x => x.id === state.filtroHot), r = c.res[h.id];
+  const lista = movs.map((m, i) => ({ m, i })).filter(x => x.m.hotelero === h.id).sort((a, b) => a.m.fecha.localeCompare(b.m.fecha) || a.m.tipo.localeCompare(b.m.tipo));
+  const nSis = lista.filter(x => x.m.origen === 'sistema').length;
+  main.innerHTML = `
+  <div class="panel"><header><h2>Movimientos de cabezas</h2>
+    <label class="small">Hotelero <select id="fHot">${hots.map(x => `<option value="${x.id}" ${x.id === h.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+    <span class="sub">Stock inicial ${fmtN(h.stock_inicial)} · final ${fmtN(r.stock_final)} · promedio ${fmtN(r.stock_prom, 1)} · cabezas·día ${fmtN(r.cab_dias)}${nSis ? ` · ${nSis} movimientos tomados del sistema` : ''}</span>
+    <span class="spacer"></span><span class="small muted">Editá las celdas; el stock se recalcula solo.</span></header>
+  <div class="grid2" style="grid-template-columns:minmax(420px,1fr) minmax(320px,1.2fr)">
+  <div class="tablewrap"><table><thead><tr><th>Fecha</th><th class="n">Ingresos</th><th class="n">Egresos</th><th class="n">Mortandad</th><th class="n">Stock</th><th class="n">kg/cab</th></tr></thead><tbody>
+  <tr class="sub"><td>Stock inicial</td><td></td><td></td><td></td><td class="n">${fmtN(h.stock_inicial)}</td><td></td></tr>
+  ${r.dias.map(d => `<tr><td>${fmtFecha(d.fecha)}</td>
+    <td class="n"><input type="number" class="cab" data-g="${d.fecha}|ingreso" value="${d.ing || ''}" placeholder="0"></td>
+    <td class="n"><input type="number" class="cab" data-g="${d.fecha}|egreso" value="${d.egr || ''}" placeholder="0"></td>
+    <td class="n"><input type="number" class="cab" data-g="${d.fecha}|mortandad" value="${d.mor || ''}" placeholder="0"></td>
+    <td class="n"><b>${fmtN(d.stock)}</b></td><td class="n">${fmtN(d.kgcab, 2)}</td></tr>`).join('')}
+  <tr class="total"><td>Total</td><td class="n">${fmtN(r.ingresos)}</td><td class="n">${fmtN(r.egresos)}</td><td class="n">${fmtN(r.mortandad)}</td><td class="n">${fmtN(r.stock_final)}</td><td class="n">${fmtN(r.kgcab, 2)}</td></tr>
+  </tbody></table></div>
+  <div><div class="row" style="justify-content:space-between;margin-bottom:6px"><h3>Detalle (tropas y sanidad de ingreso)</h3><button class="small" id="btnAddMov">+ Movimiento</button></div>
+  <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th class="n">Cabezas</th><th>N° tropa</th><th>Sanidad</th><th>Origen</th><th></th></tr></thead><tbody id="tbMov">
+  ${lista.map(({ m, i }) => `<tr data-i="${i}"><td><select data-f="fecha">${c.dias.map(d => `<option value="${d}" ${d === m.fecha ? 'selected' : ''}>${fmtFecha(d)}</option>`).join('')}</select></td>
+    <td><select data-f="tipo"><option value="ingreso" ${m.tipo === 'ingreso' ? 'selected' : ''}>Ingreso</option><option value="egreso" ${m.tipo === 'egreso' ? 'selected' : ''}>Egreso</option><option value="mortandad" ${m.tipo === 'mortandad' ? 'selected' : ''}>Mortandad</option></select></td>
+    <td class="n"><input type="number" class="cab" data-f="cabezas" value="${m.cabezas}"></td>
+    <td><input data-f="tropa" value="${esc(m.tropa || '')}" style="width:11em"></td>
+    <td>${m.tipo === 'ingreso' ? `<input type="checkbox" data-f="sanidad" ${m.sanidad ? 'checked' : ''}>` : ''}</td>
+    <td><span class="tag">${m.origen === 'sistema' ? 'sistema' : 'manual'}</span></td>
+    <td><button class="small danger" data-del="${i}">✕</button></td></tr>`).join('') || '<tr><td colspan="7" class="muted">Sin movimientos en el mes.</td></tr>'}
+  </tbody></table></div>
+  <p class="small muted" style="margin:8px 0 0">Los ingresos con «sanidad» cobran sanidad de ingreso por cabeza. Al editar una celda del cuadro, si ese día tiene varios movimientos del mismo tipo se reemplazan por uno solo.</p></div>
+  </div></div>`;
+  $('#fHot').onchange = e => { state.filtroHot = e.target.value; render(); };
+  $('#btnAddMov').onclick = () => { movs.push({ fecha: c.dias[0], hotelero: h.id, tipo: 'ingreso', cabezas: 0, tropa: '', sanidad: true, origen: 'manual' }); marcar(); render(); };
+  // cuadro
+  $$('[data-g]', main).forEach(inp => inp.onchange = () => {
+    const [fecha, tipo] = inp.dataset.g.split('|'); const v = Math.max(0, Math.round(num(inp.value)));
+    const idx = movs.map((m, i) => (m.hotelero === h.id && m.fecha === fecha && m.tipo === tipo) ? i : -1).filter(i => i >= 0);
+    if (idx.length === 1) { movs[idx[0]].cabezas = v; if (!v) movs.splice(idx[0], 1); }
+    else { const first = idx.length ? movs[idx[0]] : null; for (let k = idx.length - 1; k >= 0; k--) movs.splice(idx[k], 1); if (v) movs.push({ fecha, hotelero: h.id, tipo, cabezas: v, tropa: first ? first.tropa : '', sanidad: tipo === 'ingreso' ? (first ? !!first.sanidad : true) : false, origen: 'manual' }); }
+    marcar(); render();
+  });
+  // detalle
+  $$('#tbMov tr[data-i]', main).forEach(tr => { const m = movs[+tr.dataset.i]; $$('[data-f]', tr).forEach(inp => inp.onchange = () => {
+    const f = inp.dataset.f; if (inp.type === 'checkbox') m[f] = inp.checked; else if (inp.type === 'number') m[f] = Math.round(num(inp.value)); else m[f] = inp.value;
+    if (f === 'tipo' && m.tipo !== 'ingreso') m.sanidad = false; m.origen = 'manual'; marcar(); render(); }); });
+  $$('[data-del]', main).forEach(b => b.onclick = () => { movs.splice(+b.dataset.del, 1); marcar(); render(); });
+}
+
+// ---------- 5. Alimentación y sanidad ----------
+function renderAlimentacion(main) {
+  const ins = state.data.insumos.map(i => i.nombre), dias = state.calc.dias, ali = state.data.alimentacion, P = state.data.periodo;
+  const corrales = [...new Set(ali.map(a => a.corral))].sort();
+  const sel = state.filtroCorral && corrales.includes(state.filtroCorral) ? state.filtroCorral : '';
+  const porDia = {}; dias.forEach(d => porDia[d] = {});
+  ali.filter(a => !sel || a.corral === sel).forEach(a => { if (porDia[a.fecha]) porDia[a.fecha][a.insumo] = (porDia[a.fecha][a.insumo] || 0) + a.kg; });
+  const totIns = Object.fromEntries(ins.map(i => [i, dias.reduce((a, d) => a + (porDia[d][i] || 0), 0)]));
+  const totAll = Object.values(totIns).reduce((a, b) => a + b, 0);
+  const porCorral = {}; ali.forEach(a => porCorral[a.corral] = (porCorral[a.corral] || 0) + a.kg);
+  const sanIng = state.data.movimientos.filter(m => m.tipo === 'ingreso' && m.sanidad).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  main.innerHTML = `
+  <div class="panel"><header><h2>Kilos alimentados por día e insumo</h2><span class="sub">Kg tal cual (TC) por corral, de la base Nutrir FL. Se actualizan con «Tomar información» o importando un archivo.</span><span class="spacer"></span>
+    <label class="small">Corral <select id="fCorral"><option value="">Todos (${corrales.length})</option>${corrales.map(c => `<option value="${esc(c)}" ${sel === c ? 'selected' : ''}>${esc(c)} · ${fmtN(porCorral[c])} kg</option>`).join('')}</select></label>
+    <button class="small" id="btnImpAli">Importar alimentación (JSON/CSV)</button><input type="file" id="fileAli" accept=".json,.csv" hidden></header>
+  <div class="tablewrap"><table><thead><tr><th>Fecha</th>${ins.map(i => `<th class="n">${esc(i)}</th>`).join('')}<th class="n">Total</th></tr></thead><tbody>
+  ${dias.map(d => { const t = ins.reduce((a, i) => a + (porDia[d][i] || 0), 0); return `<tr class="${t ? '' : 'sub'}"><td>${fmtFecha(d)}</td>${ins.map(i => `<td class="n">${fmtN(porDia[d][i])}</td>`).join('')}<td class="n">${fmtN(t)}</td></tr>`; }).join('')}
+  <tr class="total"><td>Total</td>${ins.map(i => `<td class="n">${fmtN(totIns[i])}</td>`).join('')}<td class="n">${fmtN(totAll)}</td></tr>
+  <tr class="sub"><td>% del total</td>${ins.map(i => `<td class="n">${totAll ? fmtPct(totIns[i] / totAll) : ''}</td>`).join('')}<td></td></tr>
+  </tbody></table></div></div>
+  <div class="panel"><header><h2>Sanidad de ingreso</h2><span class="sub">Tropas ingresadas con sanidad · $ ${fmtN(P.precio_sanidad)}/cab + markup ${fmtPct(P.markup)}</span></header>
+  <div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Hotelero</th><th>Tropa</th><th class="n">Cabezas</th><th class="n">Importe</th></tr></thead><tbody>
+  ${sanIng.map(m => `<tr><td>${fmtFecha(m.fecha)}</td><td>${esc(hotNombre(m.hotelero))}</td><td>${esc(m.tropa || '')}</td><td class="n">${fmtN(m.cabezas)}</td><td class="n">${fmtN(m.cabezas * P.precio_sanidad * (1 + P.markup))}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Sin ingresos con sanidad en el mes.</td></tr>'}
+  <tr class="total"><td colspan="3">Total</td><td class="n">${fmtN(sanIng.reduce((a, m) => a + m.cabezas, 0))}</td><td class="n">${fmtN(sanIng.reduce((a, m) => a + m.cabezas, 0) * P.precio_sanidad * (1 + P.markup))}</td></tr>
+  </tbody></table></div></div>`;
+  $('#fCorral').onchange = e => { state.filtroCorral = e.target.value; render(); };
+  $('#btnImpAli').onclick = () => $('#fileAli').click();
+  $('#fileAli').onchange = e => importarArchivo(e.target.files[0], 'alimentacion');
+}
+// Importa filas de alimentación (JSON array o CSV con encabezados fecha,corral,insumo,kg) reemplazando las del mes.
+function importarArchivo(file, coleccion) {
+  if (!file) return; const rd = new FileReader();
+  rd.onload = () => {
+    let rows; try { rows = file.name.toLowerCase().endsWith('.csv') ? parseCSV(rd.result) : JSON.parse(rd.result); } catch (e) { toast('No se pudo leer el archivo: ' + e.message); return; }
+    if (!Array.isArray(rows)) rows = rows[coleccion] || [];
+    const mes = state.data.periodo.mes; const ok = rows.filter(r => r.fecha && String(r.fecha).startsWith(mes));
+    state.data.alimentacion = ok.map(r => ({ fecha: r.fecha, corral: String(r.corral || 'GENERAL').trim(), insumo: String(r.insumo).trim(), kg: num(r.kg) }));
+    const known = new Set(state.data.insumos.map(i => i.nombre)); ok.forEach(r => { if (!known.has(r.insumo)) { state.data.insumos.push({ nombre: r.insumo, humedad: 0 }); known.add(r.insumo); } });
+    marcar(); render(); toast(`${ok.length} filas importadas (${rows.length - ok.length} fuera del mes descartadas)`);
+  };
+  rd.readAsText(file);
+}
+function parseCSV(txt) {
+  const lines = txt.split(/\r?\n/).filter(l => l.trim()); const sep = lines[0].includes(';') ? ';' : ',';
+  const head = lines[0].split(sep).map(s => s.trim().toLowerCase());
+  return lines.slice(1).map(l => { const c = l.split(sep); const o = {}; head.forEach((h, i) => o[h] = (c[i] || '').trim()); if (o.fecha && o.fecha.includes('/')) { const [d, m, y] = o.fecha.split('/'); o.fecha = `${y}-${m}-${d}`; } return o; });
+}
+</script>
+
+<script>
+// ---------- 6. Liquidaciones ----------
+const EMPRESA = { nombre: 'PECUARIA EL GARABI S.A.', est: 'Establecimiento El Haras · Vicuña Mackenna, Córdoba', cuit: 'CUIT 33-70793667-9', tel: '3583-430685 · pecuariaelgarabisa@hotmail.com' };
+function renderLiquidaciones(main) {
+  const hots = hotsActivos(); if (!hots.length) { main.innerHTML = '<div class="panel muted">Cargá hoteleros primero.</div>'; return; }
+  if (!hots.some(h => h.id === state.liqHot)) state.liqHot = hots[0].id;
+  const h = hots.find(x => x.id === state.liqHot), r = state.calc.res[h.id], P = state.data.periodo, dias = state.calc.dias;
+  const tropas = state.data.movimientos.filter(m => m.hotelero === h.id && m.tipo === 'ingreso').sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const insumos = state.data.insumos.filter(i => (r.kg[i.nombre] || 0) > 0.005);
+  const kgMS = insumos.reduce((a, i) => a + r.kg[i.nombre] * (1 - (i.humedad || 0)), 0);
+  main.innerHTML = `
+  <div class="row noprint" style="justify-content:space-between">
+    <div class="row"><label>Hotelero <select id="liqHot">${hots.map(x => `<option value="${x.id}" ${x.id === h.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+    <label><span>&nbsp;</span><span><input type="checkbox" id="liqDet" ${state.liqDetalle ? 'checked' : ''}> Detalle diario</span></label></div>
+    <div class="row"><button id="btnPrint">Imprimir / PDF</button><button id="btnXlsHot">Excel de este hotelero</button><button id="btnXlsAll" class="primary">Excel del mes (todos)</button></div>
+  </div>
+  <div class="liq" id="liq">
+    <div class="head"><div class="emp"><b>${EMPRESA.nombre}</b><span>${EMPRESA.est}</span><span>${EMPRESA.cuit} · ${EMPRESA.tel}</span></div>
+      <div class="doc"><b>LIQUIDACIÓN DE HOTELERÍA</b><span class="muted">Período ${fmtFecha(dias[0])} al ${fmtFecha(dias[dias.length - 1])}</span><br><span class="muted">Emitida ${fmtFecha(new Date().toISOString().slice(0, 10))}</span></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 16px;margin-top:12px">
+      <div><span class="muted small">Hotelero</span><br><b>${esc(h.razon_social || h.nombre)}</b>${h.cuit ? `<br><span class="small">CUIT ${esc(h.cuit)}</span>` : ''}</div>
+      <div><span class="muted small">Tratamiento del alimento</span><br>${TRATAMIENTOS[h.tratamiento].nombre}${h.tratamiento === 'no_propio' ? ` (+${fmtPct(h.ajuste_pct || 0)})` : ''}${h.tratamiento === 'cierto' ? ` · ${(h.corrales || []).join(', ')}` : ''}</div>
+      <div><span class="muted small">Cabezas</span><br>inicio ${fmtN(h.stock_inicial)} · fin ${fmtN(r.stock_final)} · <b>promedio ${fmtN(r.stock_prom, 1)}</b></div>
+      <div><span class="muted small">Cabezas·día</span><br><b>${fmtN(r.cab_dias)}</b></div>
+    </div>
+    <h3>Estadía y sanidad de ingreso</h3>
+    <div class="tablewrap"><table><thead><tr><th>N° tropa</th><th>Fecha ingreso</th><th class="n">Cabezas</th><th>Sanidad</th><th class="n">Importe sanidad</th></tr></thead><tbody>
+    ${tropas.map(t => `<tr><td>${esc(t.tropa || '—')}</td><td>${fmtFecha(t.fecha)}</td><td class="n">${fmtN(t.cabezas)}</td><td>${t.sanidad ? 'Sí' : 'No'}</td><td class="n">${t.sanidad && h.paga_sanidad !== false ? fmt$(t.cabezas * P.precio_sanidad * (1 + P.markup)) : '—'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Sin ingresos en el período.</td></tr>'}
+    <tr class="total"><td colspan="2">Ingresos ${fmtN(r.ingresos)} · egresos ${fmtN(r.egresos)} · mortandad ${fmtN(r.mortandad)}</td><td class="n">${fmtN(r.cab_sanidad)}</td><td></td><td class="n">${fmt$(r.sanidad)}</td></tr>
+    </tbody></table></div>
+    <h3>Consumo de alimento</h3>
+    <div class="tablewrap"><table><thead><tr><th>Insumo</th><th class="n">Kg TC</th><th class="n">% MS</th><th class="n">Kg MS</th><th class="n">Precio TC $/kg</th><th class="n">Importe</th></tr></thead><tbody>
+    ${insumos.map(i => { const kg = r.kg[i.nombre], imp = r.alimento_ins[i.nombre]; return `<tr><td>${esc(i.nombre)}</td><td class="n">${fmtN(kg)}</td><td class="n">${fmtN((1 - (i.humedad || 0)) * 100, 0)} %</td><td class="n">${fmtN(kg * (1 - (i.humedad || 0)))}</td><td class="n">${fmt$(kg ? imp / kg : 0)}</td><td class="n">${fmt$(imp)}</td></tr>`; }).join('')}
+    <tr class="total"><td>Total</td><td class="n">${fmtN(r.kg_tot)}</td><td class="n">${fmtN(r.ms * 100, 0)} %</td><td class="n">${fmtN(kgMS)}</td><td class="n">${fmt$(r.precio_racion)}</td><td class="n">${fmt$(r.alimento)}</td></tr>
+    </tbody></table></div>
+    <div class="tot">
+      <span class="lab">Hotelería (${fmtN(r.cab_dias)} cab·día × $ ${fmtN(precioHot(h, P))})</span><span>${fmt$(r.hoteleria)}</span>
+      <span class="lab">Alimentación</span><span>${fmt$(r.alimento)}</span>
+      <span class="lab">Sanidad de ingreso</span><span>${fmt$(r.sanidad)}</span>
+      <span class="lab" style="border-top:1px solid var(--line);padding-top:4px">Subtotal neto</span><span style="border-top:1px solid var(--line);padding-top:4px">${fmt$(r.subtotal)}</span>
+      <span class="lab">IVA ${fmtN(P.iva * 100, 0)} %</span><span>${fmt$(r.iva)}</span>
+      <span class="lab final">TOTAL A FACTURAR</span><span class="final">$ ${fmt$(r.total)}</span>
+    </div>
+    <div class="ind"><span>Consumo <b>${fmtN(r.kgcab, 2)}</b> kg TC/cab/día</span><span>Materia seca <b>${fmtN(r.kgcab * r.ms, 2)}</b> kg MS/cab/día</span><span>Precio ración <b>$ ${fmt$(r.precio_racion)}</b>/kg TC</span><span>Costo <b>$ ${fmtN(r.cab_dias ? r.subtotal / r.cab_dias : 0)}</b>/cab/día</span></div>
+    ${state.liqDetalle ? `<h3>Detalle diario</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th class="n">Ing.</th><th class="n">Egr.</th><th class="n">Mort.</th><th class="n">Stock</th><th class="n">Kg TC</th><th class="n">kg/cab</th><th class="n">$ Alimento</th><th class="n">$ Hotelería</th><th class="n">$ Sanidad</th></tr></thead><tbody>
+    ${r.dias.map(d => `<tr><td>${fmtFecha(d.fecha)}</td><td class="n">${d.ing || ''}</td><td class="n">${d.egr || ''}</td><td class="n">${d.mor || ''}</td><td class="n">${fmtN(d.stock)}</td><td class="n">${fmtN(d.kg)}</td><td class="n">${fmtN(d.kgcab, 2)}</td><td class="n">${fmtN(d.alimento)}</td><td class="n">${fmtN(d.hoteleria)}</td><td class="n">${fmtN(d.sanidad)}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+  </div>`;
+  $('#liqHot').onchange = e => { state.liqHot = e.target.value; render(); };
+  $('#liqDet').onchange = e => { state.liqDetalle = e.target.checked; render(); };
+  $('#btnPrint').onclick = () => window.print();
+  $('#btnXlsHot').onclick = () => exportarExcel([h.id]);
+  $('#btnXlsAll').onclick = () => exportarExcel(hots.map(x => x.id));
+}
+
+// ---------- Export Excel (SheetJS) ----------
+function exportarExcel(ids) {
+  if (typeof XLSX === 'undefined') { toast('La librería de Excel no cargó (sin conexión).'); return; }
+  const c = state.calc, P = state.data.periodo, ins = state.data.insumos.map(i => i.nombre);
+  const wb = XLSX.utils.book_new();
+  const r2 = v => Math.round(v * 100) / 100;
+  // resumen
+  const res = [['Hotelero', 'Razón social', 'CUIT', 'Tratamiento', 'Stock inicial', 'Stock final', 'Cab. promedio', 'Cab·día', ...ins.map(i => 'Kg ' + i), 'Kg TC total', 'kg/cab/día', '% MS', '$ Alimento', '$ Hotelería', '$ Sanidad ingreso', 'Subtotal', 'IVA', 'Total']];
+  ids.forEach(id => { const r = c.res[id], h = r.h; res.push([h.nombre, h.razon_social || '', h.cuit || '', TRATAMIENTOS[h.tratamiento].nombre, h.stock_inicial, r.stock_final, r2(r.stock_prom), r.cab_dias, ...ins.map(i => r2(r.kg[i])), r2(r.kg_tot), r2(r.kgcab), r2(r.ms), r2(r.alimento), r2(r.hoteleria), r2(r.sanidad), r2(r.subtotal), r2(r.iva), r2(r.total)]); });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(res), 'Resumen');
+  // control diario
+  const ctl = [['Fecha', 'Kg total', 'Cab. total', 'Cab. base', 'kg/cab base', ...hotsActivos().map(h => h.nombre), 'Asignado', 'Diferencia']];
+  c.control.forEach(x => ctl.push([fmtFecha(x.fecha), r2(x.total), x.cabezas, x.baseHeads, r2(x.kgcab), ...hotsActivos().map(h => r2(x.porHot[h.id] || 0)), r2(x.asignado), r2(x.dif)]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ctl), 'Control diario');
+  // una hoja por hotelero
+  ids.forEach(id => {
+    const r = c.res[id], h = r.h;
+    const rows = [[`${h.nombre} — ${fmtMes(P.mes)} — ${TRATAMIENTOS[h.tratamiento].nombre}`], [], ['Fecha', 'Ingresos', 'Egresos', 'Mortandad', 'Stock', 'Kg TC', 'kg/cab', ...ins.map(i => 'Kg ' + i), '$ Alimento', '$ Hotelería', '$ Sanidad']];
+    r.dias.forEach(d => rows.push([fmtFecha(d.fecha), d.ing, d.egr, d.mor, d.stock, r2(d.kg), r2(d.kgcab), ...ins.map(i => r2(d.kgIns[i] || 0)), r2(d.alimento), r2(d.hoteleria), r2(d.sanidad)]));
+    rows.push(['Total', r.ingresos, r.egresos, r.mortandad, r.stock_final, r2(r.kg_tot), r2(r.kgcab), ...ins.map(i => r2(r.kg[i])), r2(r.alimento), r2(r.hoteleria), r2(r.sanidad)]);
+    rows.push([], ['Hotelería', r2(r.hoteleria)], ['Alimentación', r2(r.alimento)], ['Sanidad ingreso', r2(r.sanidad)], ['Subtotal', r2(r.subtotal)], ['IVA', r2(r.iva)], ['TOTAL', r2(r.total)]);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), h.nombre.slice(0, 31).replace(/[\\/?*\[\]:]/g, ' '));
+  });
+  const nombre = `Hoteleria_${P.mes}${ids.length === 1 ? '_' + c.res[ids[0]].h.nombre.replace(/\s+/g, '_') : ''}.xlsx`;
+  try { XLSX.writeFile(wb, nombre); toast('Excel generado: ' + nombre); } catch (e) { toast('No se pudo descargar el archivo en este visor.'); }
+}
+// ---------- 7. Datos y conexión ----------
+function renderDatos(main) {
+  const cfg = state.cfg; const meses = Object.keys(state.periodos).sort();
+  main.innerHTML = `
+  <div class="grid2">
+  <div class="panel"><header><h2>Dónde se guardan los datos</h2></header>
+    <div class="row"><label>Modo <select id="cfgModo"><option value="local" ${cfg.modo === 'local' ? 'selected' : ''}>Local (este navegador)</option><option value="supabase" ${cfg.modo === 'supabase' ? 'selected' : ''}>Supabase (nube, multiusuario)</option></select></label></div>
+    <div id="sbBox" ${cfg.modo === 'supabase' ? '' : 'hidden'} style="margin-top:10px">
+      <div class="row"><label>URL del proyecto <input id="sbUrl" value="${esc(cfg.sbUrl)}" placeholder="https://xxxx.supabase.co" style="width:22em"></label>
+      <label>anon key <input id="sbKey" type="password" value="${esc(cfg.sbKey)}" style="width:22em"></label></div>
+      <div class="row" style="margin-top:8px">${state.user ? `<span class="pill ok">Sesión: ${esc(state.user.email)}</span><button id="btnLogout" class="small">Cerrar sesión</button>` : `<label>Email <input id="sbEmail" type="email" style="width:16em"></label><label>Contraseña <input id="sbPass" type="password" style="width:12em"></label><button id="btnLogin" class="primary">Ingresar</button>`}</div>
+      <div class="row" style="margin-top:8px"><button id="btnSbCargar" class="small" ${state.user ? '' : 'disabled'}>Traer períodos de Supabase</button><button id="btnSbGuardar" class="small" ${state.user ? '' : 'disabled'}>Subir período actual</button></div>
+      <p class="small muted" style="margin:8px 0 0">El esquema de tablas está en <code>supabase_schema.sql</code>. Los datos de alimentación y movimientos los sube el script de la PC de la oficina (etapa 2); desde acá se editan y se confirman.</p>
+    </div>
+    <p class="small muted" style="margin:10px 0 0" ${cfg.modo === 'local' ? '' : 'hidden'}>En modo local todo queda en este navegador. Hacé una copia con «Descargar período (JSON)» antes de cerrar el mes.</p>
+  </div>
+  <div class="panel"><header><h2>Tomar información (PC de la oficina)</h2></header>
+    <div class="row"><label>URL del servicio <input id="cfgSync" value="${esc(cfg.syncUrl || 'http://localhost:8766')}" style="width:22em"></label><button id="btnTomar2" class="small">⟳ Tomar información ahora</button></div>
+    <p class="small muted" style="margin:8px 0 0">El servicio <code>sync/servicio_hoteleria.py</code> corre en la PC de la oficina y, cuando apretás el botón, lee la base Nutrir FL (kilos por corral e insumo) y WinCampo (movimientos en El Haras y stock sugerido al 1° del mes) para el período abierto. No corre solo: solo cuando lo pedís. Los movimientos que vos cargaste a mano se conservan; los del sistema se reemplazan.</p>
+  </div>
+  <div class="panel"><header><h2>Períodos</h2></header>
+    <div class="tablewrap"><table><thead><tr><th>Mes</th><th>Estado</th><th class="n">Hoteleros</th><th class="n">Filas alimentación</th><th class="n">Movimientos</th><th></th></tr></thead><tbody>
+    ${meses.map(m => { const d = state.periodos[m]; return `<tr><td><b>${fmtMes(m)}</b></td><td>${d.periodo.estado || 'abierto'}</td><td class="n">${d.hoteleros.length}</td><td class="n">${d.alimentacion.length}</td><td class="n">${d.movimientos.length}</td><td>${m === state.mes ? '<span class="tag">actual</span>' : `<button class="small" data-ir="${m}">Abrir</button>`} <button class="small danger" data-borrar="${m}">Borrar</button></td></tr>`; }).join('')}
+    </tbody></table></div>
+    <div class="row" style="margin-top:10px"><button id="btnExportJson">Descargar período (JSON)</button><button id="btnImportJson">Cargar período (JSON)</button><input type="file" id="fileJson" accept=".json" hidden><button id="btnDemo" class="small">Cargar ejemplo agosto 2026</button></div>
+    <p class="small muted" style="margin:8px 0 0">Formato del JSON: <code>{periodo, insumos, hoteleros, alimentacion[], movimientos[], precios[], stock_sugerido{}}</code>; fechas <code>AAAA-MM-DD</code>. Es el mismo formato que genera <code>tools/extraer_agosto.py</code> y que devuelve el servicio «Tomar información».</p>
+  </div></div>`;
+  $('#cfgModo').onchange = e => { cfg.modo = e.target.value; lsSet(LS_CFG, cfg); actualizarPills(); render(); };
+  $('#cfgSync').onchange = e => { cfg.syncUrl = e.target.value.trim(); lsSet(LS_CFG, cfg); };
+  $('#btnTomar2').onclick = tomarInformacion;
+  if (cfg.modo === 'supabase') {
+    $('#sbUrl').onchange = e => { cfg.sbUrl = e.target.value.trim(); lsSet(LS_CFG, cfg); state.sb = null; };
+    $('#sbKey').onchange = e => { cfg.sbKey = e.target.value.trim(); lsSet(LS_CFG, cfg); state.sb = null; };
+    if ($('#btnLogin')) $('#btnLogin').onclick = () => sbLogin($('#sbEmail').value, $('#sbPass').value);
+    if ($('#btnLogout')) $('#btnLogout').onclick = sbLogout;
+    $('#btnSbCargar').onclick = sbCargarPeriodos; $('#btnSbGuardar').onclick = () => sbGuardarPeriodo(state.data);
+  }
+  $$('[data-ir]', main).forEach(b => b.onclick = () => { setData(state.periodos[b.dataset.ir]); render(); });
+  $$('[data-borrar]', main).forEach(b => b.onclick = () => { if (!b.dataset.conf) { b.textContent = '¿Borrar?'; b.dataset.conf = '1'; return; } delete state.periodos[b.dataset.borrar]; lsSet(LS_KEY, state.periodos); const rest = Object.keys(state.periodos).sort(); if (rest.length) setData(state.periodos[rest[rest.length - 1]]); else setData(periodoVacio(new Date().toISOString().slice(0, 7))); render(); });
+  $('#btnExportJson').onclick = () => { const blob = new Blob([JSON.stringify(state.data, null, 1)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `hoteleria_${state.mes}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+  $('#btnImportJson').onclick = () => $('#fileJson').click();
+  $('#fileJson').onchange = e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const doc = normalizarDoc(JSON.parse(rd.result)); setData(doc); marcar(); render(); toast('Período ' + fmtMes(doc.periodo.mes) + ' cargado'); } catch (err) { toast('JSON inválido: ' + err.message); } }; rd.readAsText(f); };
+  $('#btnDemo').onclick = () => { const d = cargarDemo(); if (!d) { toast('Este archivo no trae datos de ejemplo.'); return; } setData(normalizarDoc(JSON.parse(JSON.stringify(d)))); marcar(); render(); toast('Ejemplo agosto 2026 cargado'); };
+}
+function normalizarDoc(doc) {
+  const base = periodoVacio(doc.periodo.mes); const out = { ...base, ...doc, periodo: { ...base.periodo, ...doc.periodo } };
+  out.hoteleros = (doc.hoteleros || []).map(h => ({ ajuste_pct: 0, ajuste_kg: 0, corrales: [], precio_hoteleria: null, paga_hoteleria: true, paga_sanidad: true, activo: true, ...h }));
+  ['alimentacion', 'movimientos', 'precios'].forEach(k => out[k] = doc[k] || []); out.stock_sugerido = doc.stock_sugerido || {};
+  out.hoteleros.forEach(h => { if (h.precio_hoteleria === undefined) h.precio_hoteleria = null; });
+  if (!out.insumos || !out.insumos.length) out.insumos = base.insumos;
+  out.insumos.forEach(i => { if (!i.tipo) i.tipo = 'manual'; });
+  out.precios_config = { ...base.precios_config, ...(doc.precios_config || {}) };
+  return out;
+}
+function nuevoPeriodo() {
+  const mes = mesSiguiente(state.mes); if (state.periodos[mes]) { setData(state.periodos[mes]); render(); return; }
+  const c = state.calc, doc = periodoVacio(mes); doc.periodo = { ...state.data.periodo, mes, estado: 'abierto' }; doc.insumos = JSON.parse(JSON.stringify(state.data.insumos));
+  doc.hoteleros = state.data.hoteleros.map(h => ({ ...h, corrales: [...(h.corrales || [])], stock_inicial: c.res[h.id] ? c.res[h.id].stock_final : h.stock_inicial }));
+  // precios: último precio del mes anterior copiado a todos los días
+  const last = {}; state.data.precios.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(p => last[p.insumo] = p.precio);
+  diasDelMes(mes).forEach(d => Object.entries(last).forEach(([i, p]) => doc.precios.push({ fecha: d, insumo: i, precio: p })));
+  doc.precios_config = JSON.parse(JSON.stringify(state.data.precios_config || periodoVacio(mes).precios_config)); doc.precios_config.maiz.cotizaciones = [];
+  recalcPrecios(doc);
+  setData(doc); marcar(); render(); toast(`Período ${fmtMes(mes)} creado con el stock final de ${fmtMes(state.mes === mes ? mes : Object.keys(state.periodos).sort().slice(-2)[0])} como inicial`);
+}
+
+// ---------- Tomar información (servicio local en la PC de la oficina) ----------
+async function tomarInformacion() {
+  const url = (state.cfg.syncUrl || 'http://localhost:8766').replace(/\/$/, '');
+  const b = $('#btnTomar'); if (b) { b.disabled = true; b.textContent = '⟳ Tomando…'; }
+  toast('Tomando información de Nutrir FL y WinCampo para ' + fmtMes(state.mes) + '…', 10000);
+  try {
+    const resp = await fetch(`${url}/tomar?mes=${state.mes}`, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + (await resp.text()).slice(0, 200));
+    aplicarInformacion(await resp.json());
+  } catch (e) {
+    toast(`No se pudo tomar la información (${e.message}). El servicio tiene que estar corriendo en la PC de la oficina (${url}); si no, importá el JSON desde Datos y conexión.`, 8000);
+  } finally { if (b) { b.disabled = false; b.textContent = '⟳ Tomar información'; } }
+}
+// Aplica al período abierto lo que devuelve el servicio: {mes, alimentacion[], movimientos[], stock_sugerido{}, avisos[]}
+function aplicarInformacion(j) {
+  if (j.mes && j.mes !== state.mes) { toast(`El servicio devolvió ${fmtMes(j.mes)} y el período abierto es ${fmtMes(state.mes)}.`, 6000); return; }
+  const doc = state.data, mes = state.mes;
+  const ali = (j.alimentacion || []).filter(a => a.fecha && a.fecha.startsWith(mes)).map(a => ({ fecha: a.fecha, corral: String(a.corral || 'GENERAL').trim(), insumo: String(a.insumo).trim(), kg: num(a.kg) }));
+  const known = new Set(doc.insumos.map(i => i.nombre)); ali.forEach(a => { if (!known.has(a.insumo)) { doc.insumos.push({ nombre: a.insumo, humedad: 0 }); known.add(a.insumo); } });
+  if (ali.length) doc.alimentacion = ali;
+  const ids = new Set(doc.hoteleros.map(h => h.id)); const nuevos = [];
+  const movs = (j.movimientos || []).filter(m => m.fecha && m.fecha.startsWith(mes) && m.hotelero && m.cabezas).map(m => {
+    if (!ids.has(m.hotelero)) { ids.add(m.hotelero); nuevos.push(m.hotelero); doc.hoteleros.push({ id: m.hotelero, nombre: m.hotelero, razon_social: '', cuit: '', tratamiento: 'propio', ajuste_pct: 0, ajuste_kg: 0, corrales: [], stock_inicial: 0, precio_hoteleria: null, paga_hoteleria: true, paga_sanidad: true, activo: true }); }
+    return { fecha: m.fecha, hotelero: m.hotelero, tipo: m.tipo, cabezas: Math.round(num(m.cabezas)), tropa: m.tropa || '', sanidad: m.tipo === 'ingreso' ? m.sanidad !== false : false, origen: 'sistema' };
+  });
+  const manuales = doc.movimientos.filter(m => m.origen !== 'sistema');
+  if (movs.length) doc.movimientos = manuales.concat(movs);
+  if (j.stock_sugerido) doc.stock_sugerido = Object.fromEntries(Object.entries(j.stock_sugerido).map(([k, v]) => [k, Math.round(num(v))]));
+  marcar(); render();
+  toast(`Información tomada: ${ali.length} filas de alimentación, ${movs.length} movimientos del sistema (${manuales.length} manuales conservados)${nuevos.length ? ', hoteleros nuevos: ' + nuevos.join(', ') : ''}${(j.avisos || []).length ? ' · ' + j.avisos.join(' · ') : ''}`, 9000);
+}
+
+// ---------- Supabase ----------
+// Las tablas viven en el proyecto de Caravanas Pecuaria con prefijo hot_ (ver supabase_schema.sql)
+const SB_PREFIX = 'hot_'; const T = n => SB_PREFIX + n;
+function sbClient() {
+  if (state.sb) return state.sb; const { sbUrl, sbKey } = state.cfg;
+  if (!sbUrl || !sbKey || typeof supabase === 'undefined') { toast('Completá URL y anon key de Supabase'); return null; }
+  state.sb = supabase.createClient(sbUrl, sbKey); return state.sb;
+}
+async function sbLogin(email, pass) {
+  const sb = sbClient(); if (!sb) return; const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { toast('No se pudo ingresar: ' + error.message); return; } state.user = data.user; actualizarPills(); render(); toast('Sesión iniciada'); sbCargarPeriodos();
+}
+async function sbLogout() { const sb = sbClient(); if (sb) await sb.auth.signOut(); state.user = null; actualizarPills(); render(); }
+async function sbSesion() { if (state.cfg.modo !== 'supabase') return; const sb = sbClient(); if (!sb) return; const { data } = await sb.auth.getSession(); state.user = data.session ? data.session.user : null; actualizarPills(); if (state.user) await sbCargarPeriodos(); else if (state.tab !== 'datos') { state.tab = 'datos'; render(); toast('Ingresá con tu usuario para ver los datos en la nube'); } }
+async function sbCargarPeriodos() {
+  const sb = sbClient(); if (!sb) return; toast('Trayendo datos…');
+  const q = async (t, f) => { let qq = sb.from(t).select('*'); if (f) qq = qq.eq('mes', f); const { data, error } = await qq.range(0, 49999); if (error) throw new Error(t + ': ' + error.message); return data; };
+  try {
+    const per = await q(T('periodos')); const hots = await q(T('hoteleros'));
+    for (const p of per) {
+      const doc = periodoVacio(p.mes); doc.periodo = { mes: p.mes, markup: +p.markup, precio_hoteleria: +p.precio_hoteleria, precio_sanidad: +p.precio_sanidad, iva: +p.iva, estado: p.estado };
+      if (p.insumos && p.insumos.length) doc.insumos = p.insumos;
+      if (p.precios_config) doc.precios_config = p.precios_config;
+      const stk = p.stock_inicial || {}; doc.stock_sugerido = p.stock_sugerido || {};
+      doc.hoteleros = hots.map(h => ({ id: h.id, nombre: h.nombre, razon_social: h.razon_social || '', cuit: h.cuit || '', tratamiento: h.tratamiento, ajuste_pct: +h.ajuste_pct || 0, ajuste_kg: +h.ajuste_kg || 0, corrales: h.corrales || [], stock_inicial: +(stk[h.id] || 0), precio_hoteleria: h.precio_hoteleria === null || h.precio_hoteleria === undefined ? null : +h.precio_hoteleria, paga_hoteleria: h.paga_hoteleria !== false, paga_sanidad: h.paga_sanidad !== false, activo: h.activo !== false }));
+      doc.alimentacion = (await q(T('alimentacion'), p.mes)).map(r => ({ fecha: r.fecha, corral: r.corral, insumo: r.insumo, kg: +r.kg }));
+      doc.movimientos = (await q(T('movimientos'), p.mes)).map(r => ({ fecha: r.fecha, hotelero: r.hotelero, tipo: r.tipo, cabezas: +r.cabezas, tropa: r.tropa || '', sanidad: !!r.sanidad, origen: r.origen || 'manual' }));
+      doc.precios = (await q(T('precios'), p.mes)).map(r => ({ fecha: r.fecha, insumo: r.insumo, precio: +r.precio }));
+      state.periodos[p.mes] = doc;
+    }
+    if (per.length) setData(state.periodos[per.map(p => p.mes).sort().pop()]); lsSet(LS_KEY, state.periodos); render(); toast(per.length ? `${per.length} período(s) cargados de la nube` : 'Todavía no hay períodos en la nube: cargá o creá uno y apretá Guardar');
+  } catch (e) { toast('Error al traer datos: ' + e.message, 5000); }
+}
+async function sbGuardarPeriodo(doc) {
+  const sb = sbClient(); if (!sb || !state.user) { toast('Iniciá sesión en Supabase primero'); return; }
+  const mes = doc.periodo.mes; toast('Subiendo ' + fmtMes(mes) + '…');
+  try {
+    let r = await sb.from(T('hoteleros')).upsert(doc.hoteleros.map(h => ({ id: h.id, nombre: h.nombre, razon_social: h.razon_social, cuit: h.cuit, tratamiento: h.tratamiento, ajuste_pct: h.ajuste_pct || 0, ajuste_kg: h.ajuste_kg || 0, corrales: h.corrales || [], precio_hoteleria: h.precio_hoteleria ?? null, paga_hoteleria: h.paga_hoteleria !== false, paga_sanidad: h.paga_sanidad !== false, activo: h.activo !== false }))); if (r.error) throw r.error;
+    r = await sb.from(T('periodos')).upsert({ mes, markup: doc.periodo.markup, precio_hoteleria: doc.periodo.precio_hoteleria, precio_sanidad: doc.periodo.precio_sanidad, iva: doc.periodo.iva, estado: doc.periodo.estado || 'abierto', insumos: doc.insumos, precios_config: doc.precios_config || {}, stock_inicial: Object.fromEntries(doc.hoteleros.map(h => [h.id, h.stock_inicial || 0])), stock_sugerido: doc.stock_sugerido || {} }); if (r.error) throw r.error;
+    for (const [t, rows] of [[T('alimentacion'), doc.alimentacion], [T('movimientos'), doc.movimientos], [T('precios'), doc.precios]]) {
+      r = await sb.from(t).delete().eq('mes', mes); if (r.error) throw r.error;
+      for (let i = 0; i < rows.length; i += 500) { r = await sb.from(t).insert(rows.slice(i, i + 500).map(x => ({ mes, ...x }))); if (r.error) throw r.error; }
+    }
+    state.dirty = false; actualizarPills(); toast('Período guardado en Supabase');
+  } catch (e) { toast('Error al guardar: ' + (e.message || e), 6000); }
+}
+
+// ---------- arranque ----------
+function init() {
+  const meses = Object.keys(state.periodos).sort();
+  if (meses.length) setData(state.periodos[meses[meses.length - 1]]);
+  else { const demo = cargarDemo(); setData(demo ? normalizarDoc(demo) : periodoVacio(new Date().toISOString().slice(0, 7))); if (demo) lsSet(LS_KEY, state.periodos); }
+  $$('#tabs button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; render(); });
+  $('#selPeriodo').onchange = e => { setData(state.periodos[e.target.value]); render(); };
+  $('#btnNuevoPeriodo').onclick = nuevoPeriodo;
+  $('#btnTomar').onclick = tomarInformacion;
+  $('#btnGuardar').onclick = () => { if (state.cfg.modo === 'supabase') sbGuardarPeriodo(state.data); else guardarLocal(false); };
+  const hash = location.hash.replace('#', ''); if (hash && $(`#tabs [data-tab="${hash}"]`)) state.tab = hash;
+  render(); sbSesion();
+}
+init();
+</script>
+
+</body>
+</html>
