@@ -282,7 +282,7 @@ function precioMaizDia(cfg, fecha, prev) {
   const cot = (cfg.cotizaciones || []).filter(c => c.fecha && c.precio_tn > 0).sort((a, b) => a.fecha.localeCompare(b.fecha));
   if (!cot.length) return prev ?? (cfg.piso || 0);
   let q = null; for (const c of cot) { if (c.fecha <= fecha) q = c; else break; }
-  if (!q) q = cot[0];                              // antes de la primera cotización del mes se usa la primera (como la planilla)
+  if (!q) q = cot[0];                              // sin ninguna cotización anterior (ni del mes previo) se usa la primera disponible
   const p = (q.precio_tn - (cfg.flete_largo || 0) + (cfg.flete_corto || 0)) / 1000;
   return Math.max(p, cfg.piso || 0);
 }
@@ -460,7 +460,7 @@ function renderParametros(main) {
     <td class="n">${t === 'fijo' ? `<input type="number" step="0.5" data-f="merma_ui" value="${((i.merma || 0) * 100).toFixed(1)}" style="width:4.5em">` : '—'}</td>
     <td class="n">${prom(i.nombre) !== null ? fmtN(prom(i.nombre), 2) : '<span class="muted">sin precio</span>'}</td><td class="n">${fmtN(kg)}</td><td>${kg ? '' : `<button class="small danger" data-delins="${k}">✕</button>`}</td></tr>`; }).join('')}
   </tbody></table></div>
-  <p class="small muted" style="margin:8px 0 0">Fijo: precio base del mes × (1 + merma). Maíz: (cotización del día − valor a restar + valor a sumar) ÷ 1000, con piso; los días sin cotización repiten la última. Silo: (maíz + adicional) × rendimiento × factor ÷ 10.000.</p></div>
+  <p class="small muted" style="margin:8px 0 0">Fijo: precio base del mes × (1 + merma). Maíz: (cotización del día − valor a restar + valor a sumar) ÷ 1000, con piso; los días sin cotización (fines de semana, feriados) toman la del último día cotizado, incluso del mes anterior. Silo: (maíz + adicional) × rendimiento × factor ÷ 10.000.</p></div>
   </div>
   <div class="grid2">
   <div class="panel"><header><h2>Maíz: cotización de mercado</h2><span class="sub">$/tn. Importá el Excel del Mercado de Cañuelas o cargá a mano.</span><span class="spacer"></span>
@@ -473,10 +473,10 @@ function renderParametros(main) {
     ${imp ? `<div class="note" style="margin-bottom:8px"><b>Importación:</b> ${imp.rows.length} filas leídas de <i>${esc(imp.nombre)}</i>. Elegí las columnas:
       <div class="row" style="margin-top:6px"><label>Columna fecha <select id="impFecha">${imp.hdr.map((h, k) => `<option value="${k}" ${k === imp.colFecha ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></label>
       <label>Columna precio $/tn <select id="impPrecio">${imp.hdr.map((h, k) => `<option value="${k}" ${k === imp.colPrecio ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></label>
-      <button class="primary small" id="impAplicar">Aplicar (${imp.previa.length} del mes)</button><button class="small" id="impCancel">Cancelar</button></div>
-      <div class="small muted" style="margin-top:4px">Vista previa: ${imp.previa.slice(0, 6).map(c => `${fmtFecha(c.fecha)} → ${fmtN(c.precio_tn)}`).join(' · ')}${imp.previa.length > 6 ? ' …' : ''}${imp.previa.length ? '' : ' (ninguna fila cae en ' + fmtMes(P.mes) + ')'}</div></div>` : ''}
+      <button class="primary small" id="impAplicar">Aplicar (${imp.previa.length} cotizaciones)</button><button class="small" id="impCancel">Cancelar</button></div>
+      <div class="small muted" style="margin-top:4px">Vista previa: ${imp.previa.slice(0, 6).map(c => `${fmtFecha(c.fecha)} → ${fmtN(c.precio_tn)}`).join(' · ')}${imp.previa.length > 6 ? ' …' : ''}${imp.previa.length ? '' : ' (ninguna fila cae en ' + fmtMes(P.mes) + ' ni en los 15 días previos)'}</div></div>` : ''}
     <div class="tablewrap"><table><thead><tr><th>Fecha</th><th class="n">Cotización $/tn</th><th class="n">Maíz resultante $/kg</th><th></th></tr></thead><tbody>
-    ${cots.map(c => { const k = pc.maiz.cotizaciones.indexOf(c); return `<tr data-c="${k}"><td><select data-f="fecha">${dias.map(d => `<option value="${d}" ${d === c.fecha ? 'selected' : ''}>${fmtFecha(d)}</option>`).join('')}</select></td><td class="n"><input type="number" step="10" data-f="precio_tn" value="${c.precio_tn}"></td><td class="n">${fmtN(precioMaizDia(pc.maiz, c.fecha, null), 2)}</td><td><button class="small danger" data-delcot="${k}">✕</button></td></tr>`; }).join('') || '<tr><td colspan="4" class="muted">Sin cotizaciones: el maíz queda al piso.</td></tr>'}
+    ${cots.map(c => { const k = pc.maiz.cotizaciones.indexOf(c); return `<tr data-c="${k}"><td>${dias.includes(c.fecha) ? `<select data-f="fecha">${dias.map(d => `<option value="${d}" ${d === c.fecha ? 'selected' : ''}>${fmtFecha(d)}</option>`).join('')}</select>` : `${fmtFecha(c.fecha)} <span class="muted small">(mes anterior, arrastre)</span>`}</td><td class="n"><input type="number" step="10" data-f="precio_tn" value="${c.precio_tn}"></td><td class="n">${fmtN(precioMaizDia(pc.maiz, c.fecha, null), 2)}</td><td><button class="small danger" data-delcot="${k}">✕</button></td></tr>`; }).join('') || '<tr><td colspan="4" class="muted">Sin cotizaciones: el maíz queda al piso.</td></tr>'}
     </tbody></table></div></div>
   <div class="panel"><header><h2>Silo de maíz: fórmula</h2><span class="sub">Precio del día = (maíz $/kg + adicional) × rendimiento × factor ÷ 10.000</span></header>
     <div class="row"><label>Adicional al maíz $/kg <input type="number" step="0.5" id="sAdic" value="${pc.silo.adicional}"></label><label>Rendimiento <input type="number" step="10" id="sRend" value="${pc.silo.rendimiento}"></label><label>Factor <input type="number" step="0.01" id="sFactor" value="${pc.silo.factor}"></label></div>
@@ -548,8 +548,9 @@ function leerCotizaciones(file) {
   rd.readAsArrayBuffer(file);
 }
 function previaCotizaciones(imp) {
-  const mes = state.data.periodo.mes, out = {};
-  imp.rows.forEach(r => { const f = fechaDe(r[imp.colFecha]), p = numDe(r[imp.colPrecio]); if (f && p !== null && p > 0 && f.startsWith(mes)) out[f] = p; });
+  const mes = state.data.periodo.mes, out = {}; const dias = diasDelMes(mes);
+  const desde = new Date(Date.UTC(+mes.slice(0, 4), +mes.slice(5, 7) - 1, 1)); desde.setUTCDate(desde.getUTCDate() - 15); const dMin = desde.toISOString().slice(0, 10), dMax = dias[dias.length - 1];
+  imp.rows.forEach(r => { const f = fechaDe(r[imp.colFecha]), p = numDe(r[imp.colPrecio]); if (f && p !== null && p > 0 && f >= dMin && f <= dMax) out[f] = p; });
   return Object.entries(out).map(([fecha, precio_tn]) => ({ fecha, precio_tn })).sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 function fechaDe(v) {
