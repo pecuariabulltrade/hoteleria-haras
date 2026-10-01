@@ -858,7 +858,8 @@ async function sbLogout() { const sb = sbClient(); if (sb) await sb.auth.signOut
 async function sbSesion() { if (state.cfg.modo !== 'supabase') return; const sb = sbClient(); if (!sb) return; const { data } = await sb.auth.getSession(); state.user = data.session ? data.session.user : null; actualizarPills(); if (state.user) await sbCargarPeriodos(); else if (state.tab !== 'datos') { state.tab = 'datos'; render(); toast('Ingresá con tu usuario para ver los datos en la nube'); } }
 async function sbCargarPeriodos() {
   const sb = sbClient(); if (!sb) return; toast('Trayendo datos…');
-  const q = async (t, f) => { let qq = sb.from(t).select('*'); if (f) qq = qq.eq('mes', f); const { data, error } = await qq.range(0, 49999); if (error) throw new Error(t + ': ' + error.message); return data; };
+  // Supabase devuelve como máximo 1000 filas por llamada: se pagina hasta traer todo
+  const q = async (t, f) => { const out = []; const PAGE = 1000; for (let from = 0; ; from += PAGE) { let qq = sb.from(t).select('*').order(t === T('periodos') ? 'mes' : 'id', { ascending: true }); if (f) qq = qq.eq('mes', f); const { data, error } = await qq.range(from, from + PAGE - 1); if (error) throw new Error(t + ': ' + error.message); out.push(...data); if (data.length < PAGE) break; } return out; };
   try {
     const per = await q(T('periodos')); const hots = await q(T('hoteleros'));
     for (const p of per) {
