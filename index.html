@@ -128,6 +128,7 @@ td.bad{color:var(--bad);font-weight:600} td.ok{color:var(--ok)}
   <button data-tab="movimientos">Movimientos</button>
   <button data-tab="alimentacion">Alimentación y sanidad</button>
   <button data-tab="liquidaciones">Liquidaciones</button>
+  <button data-tab="facturacion">Facturación</button>
   <button data-tab="datos">Datos y conexión</button>
 </nav>
 <main id="main"></main>
@@ -308,9 +309,10 @@ function recalcPrecios(data) {
 const TIPOS_PRECIO = { fijo: 'Fijo mensual + merma', maiz: 'Maíz (cotización)', silo: 'Silo (fórmula sobre maíz)', manual: 'Manual por día' };
 
 // ---------- estado y persistencia local ----------
-const LS_KEY = 'hoteleria.periodos.v1', LS_CFG = 'hoteleria.config.v1';
+const LS_KEY = 'hoteleria.periodos.v1', LS_CFG = 'hoteleria.config.v1', LS_LIQ = 'hoteleria.liquidaciones.v1';
 const state = {
   periodos: lsGet(LS_KEY, {}),         // mes -> documento
+  liquidaciones: lsGet(LS_LIQ, []),    // liquidaciones guardadas al cerrar cada mes: {mes, hotelero, cerrada_en, datos, estado, factura_nro, factura_fecha}
   mes: null, data: null, calc: null, tab: 'control',
   cfg: Object.assign({ modo: 'supabase', sbUrl: 'https://xqcipsnyvnozkvehpzsk.supabase.co', sbKey: 'sb_publishable_3KDY3ojS6VUHhQCUrfxKQg_JRUS7PMu', syncUrl: 'http://localhost:8766' }, lsGet(LS_CFG, {})),
   sb: null, user: null, dirty: false, filtroHot: '', liqHot: '', liqDetalle: false,
@@ -338,7 +340,7 @@ function actualizarPills() {
 function render() {
   $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
   const main = $('#main'); main.innerHTML = '';
-  const fn = { control: renderControl, hoteleros: renderHoteleros, parametros: renderParametros, movimientos: renderMovimientos, alimentacion: renderAlimentacion, liquidaciones: renderLiquidaciones, datos: renderDatos }[state.tab];
+  const fn = { control: renderControl, hoteleros: renderHoteleros, parametros: renderParametros, movimientos: renderMovimientos, alimentacion: renderAlimentacion, liquidaciones: renderLiquidaciones, facturacion: renderFacturacion, datos: renderDatos }[state.tab];
   fn(main);
   renderSelPeriodo();
 }
@@ -450,7 +452,7 @@ function renderParametros(main) {
     <label>Hotelería $/cab/día <input type="number" step="1" id="pHot" value="${P.precio_hoteleria}"></label>
     <label>Sanidad $/cab ingresada (costo) <input type="number" step="1" id="pSan" value="${P.precio_sanidad}"></label>
     <label>IVA % <input type="number" step="0.5" id="pIva" value="${(P.iva * 100).toFixed(1)}"></label>
-    <label>Estado <select id="pEstado"><option ${P.estado === 'abierto' ? 'selected' : ''}>abierto</option><option ${P.estado === 'cerrado' ? 'selected' : ''}>cerrado</option></select></label>
+    <label>Estado <span class="pill ${P.estado === 'cerrado' ? 'ok' : 'warn'}" style="margin-top:4px">${P.estado === 'cerrado' ? 'cerrado' : 'abierto'}</span></label>
   </div><p class="small muted" style="margin:10px 0 0">El markup se aplica al alimento y a la sanidad de ingreso. La hotelería se cobra al precio indicado sin markup (o al propio del hotelero si lo tiene).</p></div>
   <div class="panel"><header><h2>Insumos: humedad y forma de precio</h2><span class="spacer"></span><button class="small" id="btnAddIns">+ Insumo</button></header>
   <div class="tablewrap"><table><thead><tr><th>Insumo</th><th class="n">Humedad %</th><th>Precio</th><th class="n">Base $/kg</th><th class="n">Merma %</th><th class="n">Promedio mes $/kg</th><th class="n">Kg del mes</th><th></th></tr></thead><tbody>
@@ -492,7 +494,6 @@ function renderParametros(main) {
   $('#pHot').onchange = e => { P.precio_hoteleria = num(e.target.value); marcar(); };
   $('#pSan').onchange = e => { P.precio_sanidad = num(e.target.value); marcar(); };
   $('#pIva').onchange = e => { P.iva = num(e.target.value) / 100; marcar(); };
-  $('#pEstado').onchange = e => { P.estado = e.target.value; marcar(); };
   $('#btnAddIns').onclick = () => { ins.push({ nombre: 'NUEVO INSUMO', humedad: 0, tipo: 'fijo', base: 0, merma: 0 }); upd(); };
   $$('tr[data-k]', main).forEach(tr => { const i = ins[+tr.dataset.k]; $$('[data-f]', tr).forEach(inp => inp.onchange = () => {
     const f = inp.dataset.f;
@@ -667,22 +668,34 @@ function parseCSV(txt) {
 <script>
 // ---------- 6. Liquidaciones ----------
 const EMPRESA = { nombre: 'PECUARIA EL GARABI S.A.', est: 'Establecimiento El Haras · Vicuña Mackenna, Córdoba', cuit: 'CUIT 33-70793667-9', tel: '3583-430685 · pecuariaelgarabisa@hotmail.com' };
-function renderLiquidaciones(main) {
-  const hots = hotsActivos(); if (!hots.length) { main.innerHTML = '<div class="panel muted">Cargá hoteleros primero.</div>'; return; }
-  if (!hots.some(h => h.id === state.liqHot)) state.liqHot = hots[0].id;
-  const h = hots.find(x => x.id === state.liqHot), r = state.calc.res[h.id], P = state.data.periodo, dias = state.calc.dias;
-  const tropas = state.data.movimientos.filter(m => m.hotelero === h.id && m.tipo === 'ingreso').sort((a, b) => a.fecha.localeCompare(b.fecha));
-  const insumos = state.data.insumos.filter(i => (r.kg[i.nombre] || 0) > 0.005);
+
+// Arma la "foto" de la liquidación de un hotelero a partir del cálculo vivo (es lo que se guarda al cerrar el mes).
+function snapshotLiquidacion(hid) {
+  const h = state.data.hoteleros.find(x => x.id === hid), r = state.calc.res[hid], P = state.data.periodo, dias = state.calc.dias;
+  if (!h || !r) return null;
+  const { h: _h, ...rr } = r;
+  return {
+    mes: P.mes, hotelero: hid, cerrada_en: new Date().toISOString(),
+    datos: {
+      h: JSON.parse(JSON.stringify(h)), P: { ...P }, dias: [dias[0], dias[dias.length - 1]],
+      precio_hoteleria: precioHot(h, P),
+      insumos: state.data.insumos.filter(i => (r.kg[i.nombre] || 0) > 0.005).map(i => ({ nombre: i.nombre, humedad: i.humedad || 0 })),
+      tropas: state.data.movimientos.filter(m => m.hotelero === hid && m.tipo === 'ingreso').sort((a, b) => a.fecha.localeCompare(b.fecha)).map(m => ({ fecha: m.fecha, tropa: m.tropa || '', cabezas: m.cabezas, sanidad: !!m.sanidad })),
+      r: JSON.parse(JSON.stringify(rr)),
+    },
+  };
+}
+function liqGuardada(mes, hid) { return (state.liquidaciones || []).find(l => l.mes === mes && l.hotelero === hid); }
+
+// HTML del documento de liquidación a partir de una foto (viva o guardada)
+function liqHTML(snap, detalle) {
+  const { h, P, dias, insumos, tropas, r, precio_hoteleria } = snap.datos;
   const kgMS = insumos.reduce((a, i) => a + r.kg[i.nombre] * (1 - (i.humedad || 0)), 0);
-  main.innerHTML = `
-  <div class="row noprint" style="justify-content:space-between">
-    <div class="row"><label>Hotelero <select id="liqHot">${hots.map(x => `<option value="${x.id}" ${x.id === h.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
-    <label><span>&nbsp;</span><span><input type="checkbox" id="liqDet" ${state.liqDetalle ? 'checked' : ''}> Detalle diario</span></label></div>
-    <div class="row"><button id="btnPrint">Imprimir / PDF</button><button id="btnXlsHot">Excel de este hotelero</button><button id="btnXlsAll" class="primary">Excel del mes (todos)</button></div>
-  </div>
+  const emitida = snap.cerrada_en ? fmtFecha(snap.cerrada_en.slice(0, 10)) : fmtFecha(new Date().toISOString().slice(0, 10));
+  return `
   <div class="liq" id="liq">
     <div class="head"><div class="emp"><b>${EMPRESA.nombre}</b><span>${EMPRESA.est}</span><span>${EMPRESA.cuit} · ${EMPRESA.tel}</span></div>
-      <div class="doc"><b>LIQUIDACIÓN DE HOTELERÍA</b><span class="muted">Período ${fmtFecha(dias[0])} al ${fmtFecha(dias[dias.length - 1])}</span><br><span class="muted">Emitida ${fmtFecha(new Date().toISOString().slice(0, 10))}</span></div></div>
+      <div class="doc"><b>LIQUIDACIÓN DE HOTELERÍA</b><span class="muted">Período ${fmtFecha(dias[0])} al ${fmtFecha(dias[1])}</span><br><span class="muted">${snap.cerrada_en ? 'Cerrada' : 'Borrador'} ${emitida}</span>${snap.estado === 'facturada' ? `<br><span class="small">Factura ${esc(snap.factura_nro || '')}${snap.factura_fecha ? ' · ' + fmtFecha(snap.factura_fecha) : ''}</span>` : ''}</div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 16px;margin-top:12px">
       <div><span class="muted small">Hotelero</span><br><b>${esc(h.razon_social || h.nombre)}</b>${h.cuit ? `<br><span class="small">CUIT ${esc(h.cuit)}</span>` : ''}</div>
       <div><span class="muted small">Tratamiento del alimento</span><br>${TRATAMIENTOS[h.tratamiento].nombre}${h.tratamiento === 'no_propio' ? ` (+${fmtPct(h.ajuste_pct || 0)})` : ''}${h.tratamiento === 'cierto' ? ` · ${(h.corrales || []).join(', ')}` : ''}</div>
@@ -700,7 +713,7 @@ function renderLiquidaciones(main) {
     <tr class="total"><td>Total</td><td class="n">${fmtN(r.kg_tot)}</td><td class="n">${fmtN(r.ms * 100, 0)} %</td><td class="n">${fmtN(kgMS)}</td><td class="n">${fmt$(r.precio_racion)}</td><td class="n">${fmt$(r.alimento)}</td></tr>
     </tbody></table></div>
     <div class="tot">
-      <span class="lab">Hotelería (${fmtN(r.cab_dias)} cab·día × $ ${fmtN(precioHot(h, P))})</span><span>${fmt$(r.hoteleria)}</span>
+      <span class="lab">Hotelería (${fmtN(r.cab_dias)} cab·día × $ ${fmtN(precio_hoteleria)})</span><span>${fmt$(r.hoteleria)}</span>
       <span class="lab">Alimentación</span><span>${fmt$(r.alimento)}</span>
       <span class="lab">Sanidad de ingreso</span><span>${fmt$(r.sanidad)}</span>
       <span class="lab" style="border-top:1px solid var(--line);padding-top:4px">Subtotal neto</span><span style="border-top:1px solid var(--line);padding-top:4px">${fmt$(r.subtotal)}</span>
@@ -708,42 +721,163 @@ function renderLiquidaciones(main) {
       <span class="lab final">TOTAL A FACTURAR</span><span class="final">$ ${fmt$(r.total)}</span>
     </div>
     <div class="ind"><span>Consumo <b>${fmtN(r.kgcab, 2)}</b> kg TC/cab/día</span><span>Materia seca <b>${fmtN(r.kgcab * r.ms, 2)}</b> kg MS/cab/día</span><span>Precio ración <b>$ ${fmt$(r.precio_racion)}</b>/kg TC</span><span>Costo <b>$ ${fmtN(r.cab_dias ? r.subtotal / r.cab_dias : 0)}</b>/cab/día</span></div>
-    ${state.liqDetalle ? `<h3>Detalle diario</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th class="n">Ing.</th><th class="n">Egr.</th><th class="n">Mort.</th><th class="n">Stock</th><th class="n">Kg TC</th><th class="n">kg/cab</th><th class="n">$ Alimento</th><th class="n">$ Hotelería</th><th class="n">$ Sanidad</th></tr></thead><tbody>
+    ${detalle ? `<h3>Detalle diario</h3><div class="tablewrap"><table><thead><tr><th>Fecha</th><th class="n">Ing.</th><th class="n">Egr.</th><th class="n">Mort.</th><th class="n">Stock</th><th class="n">Kg TC</th><th class="n">kg/cab</th><th class="n">$ Alimento</th><th class="n">$ Hotelería</th><th class="n">$ Sanidad</th></tr></thead><tbody>
     ${r.dias.map(d => `<tr><td>${fmtFecha(d.fecha)}</td><td class="n">${d.ing || ''}</td><td class="n">${d.egr || ''}</td><td class="n">${d.mor || ''}</td><td class="n">${fmtN(d.stock)}</td><td class="n">${fmtN(d.kg)}</td><td class="n">${fmtN(d.kgcab, 2)}</td><td class="n">${fmtN(d.alimento)}</td><td class="n">${fmtN(d.hoteleria)}</td><td class="n">${fmtN(d.sanidad)}</td></tr>`).join('')}
     </tbody></table></div>` : ''}
   </div>`;
+}
+
+function renderLiquidaciones(main) {
+  const hots = hotsActivos(); if (!hots.length) { main.innerHTML = '<div class="panel muted">Cargá hoteleros primero.</div>'; return; }
+  if (!hots.some(h => h.id === state.liqHot)) state.liqHot = hots[0].id;
+  const h = hots.find(x => x.id === state.liqHot), P = state.data.periodo;
+  const cerrado = P.estado === 'cerrado'; const guardada = liqGuardada(P.mes, h.id);
+  const snap = (cerrado && guardada) ? guardada : snapshotLiquidacion(h.id);
+  const viva = snapshotLiquidacion(h.id); const difiere = cerrado && guardada && Math.abs(viva.datos.r.total - guardada.datos.r.total) > 0.5;
+  const nGuardadas = (state.liquidaciones || []).filter(l => l.mes === P.mes).length;
+  main.innerHTML = `
+  <div class="row noprint" style="justify-content:space-between">
+    <div class="row"><label>Hotelero <select id="liqHot">${hots.map(x => `<option value="${x.id}" ${x.id === h.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>
+    <label><span>&nbsp;</span><span><input type="checkbox" id="liqDet" ${state.liqDetalle ? 'checked' : ''}> Detalle diario</span></label>
+    ${cerrado ? `<span class="pill ok">Mes cerrado · ${nGuardadas} liquidaciones guardadas</span>` : `<span class="pill warn">Mes abierto · borrador</span>`}</div>
+    <div class="row">${cerrado ? `<button id="btnReabrir" class="danger">Reabrir mes</button>` : `<button id="btnCerrar" class="primary">Cerrar mes y guardar liquidaciones</button>`}<button id="btnPrint">Imprimir / PDF</button><button id="btnXlsHot">Excel de este hotelero</button><button id="btnXlsAll">Excel del mes (todos)</button><button id="btnRespaldo" title="Guarda en la PC de la oficina el Excel informe completo y el JSON del mes">Respaldar en el servidor</button></div>
+  </div>
+  ${difiere ? `<div class="note warn noprint">Los datos del mes cambiaron después del cierre: la liquidación guardada da $ ${fmt$(guardada.datos.r.total)} y el cálculo actual $ ${fmt$(viva.datos.r.total)}. Se muestra la guardada; para rehacerla, reabrí el mes y volvé a cerrarlo.</div>` : ''}
+  ${cerrado && !guardada ? `<div class="note warn noprint">Este hotelero no tiene liquidación guardada en el cierre (no tenía importes). Se muestra el cálculo actual.</div>` : ''}
+  ${liqHTML(snap, state.liqDetalle)}`;
   $('#liqHot').onchange = e => { state.liqHot = e.target.value; render(); };
   $('#liqDet').onchange = e => { state.liqDetalle = e.target.checked; render(); };
   $('#btnPrint').onclick = () => window.print();
   $('#btnXlsHot').onclick = () => exportarExcel([h.id]);
   $('#btnXlsAll').onclick = () => exportarExcel(hots.map(x => x.id));
+  if ($('#btnCerrar')) $('#btnCerrar').onclick = cerrarMes;
+  $('#btnRespaldo').onclick = () => respaldarServidor('manual');
+  if ($('#btnReabrir')) $('#btnReabrir').onclick = reabrirMes;
 }
 
+// Cierra el mes: guarda una liquidación por hotelero con importe y marca el período como cerrado.
+async function cerrarMes() {
+  const P = state.data.periodo, maxDif = Math.max(0, ...state.calc.control.map(x => Math.abs(x.dif)));
+  if (maxDif > 0.01) { toast('El cierre diario tiene diferencias: revisá Control del mes antes de cerrar.', 5000); return; }
+  const b = $('#btnCerrar'); if (b && !b.dataset.conf) { b.dataset.conf = '1'; b.textContent = `¿Confirmás cerrar ${fmtMes(P.mes)}?`; return; }
+  const nuevas = hotsActivos().map(h => snapshotLiquidacion(h.id)).filter(s => s && s.datos.r.total > 0.005).map(s => ({ ...s, estado: 'pendiente', factura_nro: '', factura_fecha: null }));
+  state.liquidaciones = (state.liquidaciones || []).filter(l => l.mes !== P.mes).concat(nuevas);
+  P.estado = 'cerrado'; marcar(); lsSet(LS_LIQ, state.liquidaciones);
+  if (state.cfg.modo === 'supabase' && state.user) { await sbGuardarPeriodo(state.data); await sbGuardarLiquidaciones(P.mes, nuevas); }
+  render(); toast(`${fmtMes(P.mes)} cerrado: ${nuevas.length} liquidaciones guardadas, pendientes de facturar`, 5000);
+  setTimeout(() => respaldarServidor('cierre de mes'), 1500);
+}
+async function reabrirMes() {
+  const P = state.data.periodo; const b = $('#btnReabrir'); if (b && !b.dataset.conf) { b.dataset.conf = '1'; b.textContent = '¿Reabrir y descartar las liquidaciones guardadas?'; return; }
+  const fact = (state.liquidaciones || []).filter(l => l.mes === P.mes && l.estado === 'facturada');
+  if (fact.length) { toast(`Hay ${fact.length} liquidaciones ya facturadas en ${fmtMes(P.mes)}; marcalas como pendientes en Facturación antes de reabrir.`, 6000); render(); return; }
+  state.liquidaciones = (state.liquidaciones || []).filter(l => l.mes !== P.mes); lsSet(LS_LIQ, state.liquidaciones);
+  P.estado = 'abierto'; marcar();
+  if (state.cfg.modo === 'supabase' && state.user) { await sbGuardarPeriodo(state.data); await sbBorrarLiquidaciones(P.mes); }
+  render(); toast(`${fmtMes(P.mes)} reabierto`);
+}
+
+// ---------- 6b. Facturación ----------
+function renderFacturacion(main) {
+  const liqs = (state.liquidaciones || []).slice().sort((a, b) => b.mes.localeCompare(a.mes) || a.hotelero.localeCompare(b.hotelero));
+  const f = state.filtroFact || 'pendiente';
+  const lista = liqs.filter(l => f === 'todas' || l.estado === f);
+  const pend = liqs.filter(l => l.estado !== 'facturada'); const totPend = pend.reduce((a, l) => a + l.datos.r.total, 0);
+  const ver = state.verLiq ? liqs.find(l => l.mes === state.verLiq.mes && l.hotelero === state.verLiq.hotelero) : null;
+  main.innerHTML = `
+  <div class="kpis">
+    <div class="kpi ${pend.length ? 'bad' : 'ok'}"><div class="l">Pendientes de facturar</div><div class="v">${pend.length}</div></div>
+    <div class="kpi"><div class="l">Total pendiente (con IVA)</div><div class="v">$ ${fmtN(totPend)}</div></div>
+    <div class="kpi"><div class="l">Facturadas</div><div class="v">${liqs.length - pend.length}</div></div>
+  </div>
+  <div class="panel"><header><h2>Liquidaciones guardadas</h2><span class="sub">Se generan al cerrar cada mes (pestaña Liquidaciones). Marcá cada una cuando la factures.</span><span class="spacer"></span>
+    <label class="small">Ver <select id="fFact"><option value="pendiente" ${f === 'pendiente' ? 'selected' : ''}>Pendientes</option><option value="facturada" ${f === 'facturada' ? 'selected' : ''}>Facturadas</option><option value="todas" ${f === 'todas' ? 'selected' : ''}>Todas</option></select></label></header>
+  <div class="tablewrap"><table><thead><tr><th>Mes</th><th>Hotelero</th><th>Razón social</th><th>CUIT</th><th class="n">Cab·día</th><th class="n">Kg TC</th><th class="n">Neto</th><th class="n">IVA</th><th class="n">Total</th><th>Estado</th><th>N° factura</th><th>Fecha factura</th><th></th></tr></thead><tbody>
+  ${lista.map(l => { const d = l.datos, k = l.mes + '|' + l.hotelero; return `<tr data-k="${k}"><td><b>${fmtMes(l.mes)}</b></td><td>${esc(d.h.nombre)}</td><td>${esc(d.h.razon_social || '')}</td><td>${esc(d.h.cuit || '')}</td><td class="n">${fmtN(d.r.cab_dias)}</td><td class="n">${fmtN(d.r.kg_tot)}</td><td class="n">${fmtN(d.r.subtotal)}</td><td class="n">${fmtN(d.r.iva)}</td><td class="n"><b>${fmtN(d.r.total)}</b></td>
+    <td>${l.estado === 'facturada' ? '<span class="pill ok">Facturada</span>' : '<span class="pill warn">Pendiente</span>'}</td>
+    <td><input data-f="factura_nro" value="${esc(l.factura_nro || '')}" placeholder="0001-00001234" style="width:10em"></td>
+    <td><input type="date" data-f="factura_fecha" value="${l.factura_fecha || ''}"></td>
+    <td class="row" style="flex-wrap:nowrap"><button class="small" data-ver="${k}">Ver</button>${l.estado === 'facturada' ? `<button class="small" data-pend="${k}">Volver a pendiente</button>` : `<button class="small primary" data-fact="${k}">Marcar facturada</button>`}</td></tr>`; }).join('') || `<tr><td colspan="13" class="muted">No hay liquidaciones ${f === 'todas' ? 'guardadas' : f + 's'}. Cerrá un mes desde la pestaña Liquidaciones.</td></tr>`}
+  </tbody></table></div></div>
+  ${ver ? `<div class="row noprint" style="justify-content:space-between"><h2>Liquidación guardada · ${fmtMes(ver.mes)} · ${esc(ver.datos.h.nombre)}</h2><div class="row"><button id="btnPrintVer">Imprimir / PDF</button><button id="btnCerrarVer">Cerrar vista</button></div></div>${liqHTML(ver, true)}` : ''}`;
+  $('#fFact').onchange = e => { state.filtroFact = e.target.value; render(); };
+  const find = k => { const [mes, hid] = k.split('|'); return (state.liquidaciones || []).find(l => l.mes === mes && l.hotelero === hid); };
+  $$('tr[data-k]', main).forEach(tr => { const l = find(tr.dataset.k); $$('[data-f]', tr).forEach(inp => inp.onchange = () => { l[inp.dataset.f] = inp.value || (inp.type === 'date' ? null : ''); guardarLiq(l); }); });
+  $$('[data-fact]', main).forEach(b => b.onclick = () => { const l = find(b.dataset.fact); const tr = b.closest('tr'); l.factura_nro = $('[data-f="factura_nro"]', tr).value.trim(); l.factura_fecha = $('[data-f="factura_fecha"]', tr).value || new Date().toISOString().slice(0, 10); l.estado = 'facturada'; guardarLiq(l); render(); toast(`${esc(l.datos.h.nombre)} ${fmtMes(l.mes)} marcada como facturada`); });
+  $$('[data-pend]', main).forEach(b => b.onclick = () => { const l = find(b.dataset.pend); l.estado = 'pendiente'; guardarLiq(l); render(); });
+  $$('[data-ver]', main).forEach(b => b.onclick = () => { const [mes, hotelero] = b.dataset.ver.split('|'); state.verLiq = { mes, hotelero }; render(); setTimeout(() => { const el = $('#liq'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 50); });
+  if (ver) { $('#btnPrintVer').onclick = () => window.print(); $('#btnCerrarVer').onclick = () => { state.verLiq = null; render(); }; }
+}
+function guardarLiq(l) { lsSet(LS_LIQ, state.liquidaciones); if (state.cfg.modo === 'supabase' && state.user) sbGuardarLiquidaciones(l.mes, [l]); }
+
 // ---------- Export Excel (SheetJS) ----------
-function exportarExcel(ids) {
-  if (typeof XLSX === 'undefined') { toast('La librería de Excel no cargó (sin conexión).'); return; }
-  const c = state.calc, P = state.data.periodo, ins = state.data.insumos.map(i => i.nombre);
-  const wb = XLSX.utils.book_new();
-  const r2 = v => Math.round(v * 100) / 100;
-  // resumen
+// Arma el libro del mes. completo=true agrega las hojas de respaldo (liquidaciones, parámetros, precios, movimientos, alimentación).
+function armarLibro(ids, completo) {
+  const c = state.calc, P = state.data.periodo, ins = state.data.insumos.map(i => i.nombre), D = state.data;
+  const wb = XLSX.utils.book_new(); const r2 = v => Math.round(v * 100) / 100; const hoja = (rows, n) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), n.slice(0, 31).replace(/[\\/?*\[\]:]/g, ' '));
   const res = [['Hotelero', 'Razón social', 'CUIT', 'Tratamiento', 'Stock inicial', 'Stock final', 'Cab. promedio', 'Cab·día', ...ins.map(i => 'Kg ' + i), 'Kg TC total', 'Kg MS', 'kg TC/cab/día', 'kg MS/cab/día', '% MS', '$/kg TC', '$/kg MS', '$ Alimento', '$ Hotelería', '$ Sanidad ingreso', 'Subtotal', 'IVA', 'Total']];
   ids.forEach(id => { const r = c.res[id], h = r.h; res.push([h.nombre, h.razon_social || '', h.cuit || '', TRATAMIENTOS[h.tratamiento].nombre, h.stock_inicial, r.stock_final, r2(r.stock_prom), r.cab_dias, ...ins.map(i => r2(r.kg[i])), r2(r.kg_tot), r2(r.kg_ms), r2(r.kgcab), r2(r.kgcab * r.ms), r2(r.ms), r2(r.precio_racion), r2(r.precio_ms), r2(r.alimento), r2(r.hoteleria), r2(r.sanidad), r2(r.subtotal), r2(r.iva), r2(r.total)]); });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(res), 'Resumen');
-  // control diario
+  hoja(res, 'Resumen');
   const ctl = [['Fecha', 'Kg total', 'Cab. total', 'Cab. base', 'kg/cab base', ...hotsActivos().map(h => h.nombre), 'Asignado', 'Diferencia']];
   c.control.forEach(x => ctl.push([fmtFecha(x.fecha), r2(x.total), x.cabezas, x.baseHeads, r2(x.kgcab), ...hotsActivos().map(h => r2(x.porHot[h.id] || 0)), r2(x.asignado), r2(x.dif)]));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ctl), 'Control diario');
-  // una hoja por hotelero
+  hoja(ctl, 'Control diario');
   ids.forEach(id => {
     const r = c.res[id], h = r.h;
     const rows = [[`${h.nombre} — ${fmtMes(P.mes)} — ${TRATAMIENTOS[h.tratamiento].nombre}`], [], ['Fecha', 'Ingresos', 'Egresos', 'Mortandad', 'Stock', 'Kg TC', 'kg/cab', ...ins.map(i => 'Kg ' + i), '$ Alimento', '$ Hotelería', '$ Sanidad']];
     r.dias.forEach(d => rows.push([fmtFecha(d.fecha), d.ing, d.egr, d.mor, d.stock, r2(d.kg), r2(d.kgcab), ...ins.map(i => r2(d.kgIns[i] || 0)), r2(d.alimento), r2(d.hoteleria), r2(d.sanidad)]));
     rows.push(['Total', r.ingresos, r.egresos, r.mortandad, r.stock_final, r2(r.kg_tot), r2(r.kgcab), ...ins.map(i => r2(r.kg[i])), r2(r.alimento), r2(r.hoteleria), r2(r.sanidad)]);
     rows.push([], ['Hotelería', r2(r.hoteleria)], ['Alimentación', r2(r.alimento)], ['Sanidad ingreso', r2(r.sanidad)], ['Subtotal', r2(r.subtotal)], ['IVA', r2(r.iva)], ['TOTAL', r2(r.total)]);
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), h.nombre.slice(0, 31).replace(/[\\/?*\[\]:]/g, ' '));
+    hoja(rows, h.nombre);
   });
+  if (completo) {
+    const liqs = (state.liquidaciones || []).filter(l => l.mes === P.mes);
+    const lq = [['Mes', 'Hotelero', 'Razón social', 'CUIT', 'Cerrada', 'Estado', 'N° factura', 'Fecha factura', 'Cab·día', 'Kg TC', 'kg/cab/día', '$ Alimento', '$ Hotelería', '$ Sanidad', 'Neto', 'IVA', 'Total']];
+    liqs.forEach(l => { const d = l.datos; lq.push([fmtMes(l.mes), d.h.nombre, d.h.razon_social || '', d.h.cuit || '', fmtFecha((l.cerrada_en || '').slice(0, 10)), l.estado, l.factura_nro || '', l.factura_fecha ? fmtFecha(l.factura_fecha) : '', d.r.cab_dias, r2(d.r.kg_tot), r2(d.r.kgcab), r2(d.r.alimento), r2(d.r.hoteleria), r2(d.r.sanidad), r2(d.r.subtotal), r2(d.r.iva), r2(d.r.total)]); });
+    if (!liqs.length) lq.push(['(mes sin cerrar: todavía no hay liquidaciones guardadas)']);
+    hoja(lq, 'Liquidaciones');
+    const pc = D.precios_config || {};
+    const par = [['Período', fmtMes(P.mes)], ['Estado', P.estado], ['Markup', P.markup], ['Hotelería $/cab/día', P.precio_hoteleria], ['Sanidad $/cab ingresada (costo)', P.precio_sanidad], ['IVA', P.iva], [],
+      ['Hotelero', 'Nombre', 'Razón social', 'CUIT', 'Tratamiento', 'Ajuste %', 'Ajuste kg/día', 'Corrales', 'Stock inicial', 'Stock sugerido', 'Hotelería propia $/cab/día', 'Paga hotelería', 'Paga sanidad', 'Activo']];
+    D.hoteleros.forEach(h => par.push([h.id, h.nombre, h.razon_social || '', h.cuit || '', h.tratamiento, h.ajuste_pct || 0, h.ajuste_kg || 0, (h.corrales || []).join(', '), h.stock_inicial || 0, (D.stock_sugerido || {})[h.id] ?? '', h.precio_hoteleria ?? '', h.paga_hoteleria !== false ? 'sí' : 'no', h.paga_sanidad !== false ? 'sí' : 'no', h.activo !== false ? 'sí' : 'no']));
+    par.push([], ['Insumo', 'Humedad', 'Tipo de precio', 'Base $/kg', 'Merma']); D.insumos.forEach(i => par.push([i.nombre, i.humedad || 0, i.tipo || 'manual', i.base ?? '', i.merma ?? '']));
+    par.push([], ['Maíz: valor a restar $/tn', (pc.maiz || {}).flete_largo || 0], ['Maíz: valor a sumar $/tn', (pc.maiz || {}).flete_corto || 0], ['Maíz: piso $/kg', (pc.maiz || {}).piso || 0], ['Silo: adicional', (pc.silo || {}).adicional], ['Silo: rendimiento', (pc.silo || {}).rendimiento], ['Silo: factor', (pc.silo || {}).factor], [], ['Cotización maíz: fecha', '$/tn']);
+    ((pc.maiz || {}).cotizaciones || []).slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(x => par.push([fmtFecha(x.fecha), x.precio_tn]));
+    hoja(par, 'Parametros');
+    const pr = [['Fecha', ...ins]]; const precio = {}; D.precios.forEach(p => precio[p.fecha + '|' + p.insumo] = p.precio);
+    c.dias.forEach(d => pr.push([fmtFecha(d), ...ins.map(i => precio[d + '|' + i] ?? '')])); hoja(pr, 'Precios diarios');
+    const mv = [['Fecha', 'Hotelero', 'Tipo', 'Cabezas', 'N° tropa', 'Sanidad', 'Origen']];
+    D.movimientos.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(m => mv.push([fmtFecha(m.fecha), hotNombre(m.hotelero), m.tipo, m.cabezas, m.tropa || '', m.sanidad ? 'sí' : 'no', m.origen || 'manual'])); hoja(mv, 'Movimientos');
+    const al = [['Fecha', 'Corral', 'Insumo', 'Kg TC']]; D.alimentacion.slice().sort((a, b) => a.fecha.localeCompare(b.fecha) || a.corral.localeCompare(b.corral)).forEach(a => al.push([fmtFecha(a.fecha), a.corral, a.insumo, r2(a.kg)])); hoja(al, 'Alimentacion');
+  }
+  return wb;
+}
+function exportarExcel(ids) {
+  if (typeof XLSX === 'undefined') { toast('La librería de Excel no cargó (sin conexión).'); return; }
+  const P = state.data.periodo, c = state.calc; const wb = armarLibro(ids, false);
   const nombre = `Hoteleria_${P.mes}${ids.length === 1 ? '_' + c.res[ids[0]].h.nombre.replace(/\s+/g, '_') : ''}.xlsx`;
   try { XLSX.writeFile(wb, nombre); toast('Excel generado: ' + nombre); } catch (e) { toast('No se pudo descargar el archivo en este visor.'); }
+}
+// Respaldo en el servidor (PC de la oficina): Excel informe completo + JSON del período y sus liquidaciones.
+// Si el servicio no responde, descarga los dos archivos en el navegador.
+async function respaldarServidor(motivo) {
+  if (typeof XLSX === 'undefined') { toast('La librería de Excel no cargó (sin conexión).'); return false; }
+  const P = state.data.periodo, mes = P.mes;
+  const wb = armarLibro(hotsActivos().map(h => h.id), true);
+  const xlsx = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+  const json = JSON.stringify({ generado: new Date().toISOString(), motivo: motivo || 'manual', periodo: state.data, liquidaciones: (state.liquidaciones || []).filter(l => l.mes === mes) }, null, 1);
+  const url = (state.cfg.syncUrl || 'http://localhost:8766').replace(/\/$/, '');
+  try {
+    const resp = await fetch(`${url}/respaldo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mes, motivo: motivo || 'manual', xlsx_b64: xlsx, json }) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + (await resp.text()).slice(0, 120));
+    const j = await resp.json(); toast(`Respaldo guardado en el servidor: ${j.carpeta} (${(j.archivos || []).join(', ')})`, 7000); return true;
+  } catch (e) {
+    try {
+      XLSX.writeFile(wb, `Hoteleria_${mes}_respaldo.xlsx`);
+      const blob = new Blob([json], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Hoteleria_${mes}_respaldo.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      toast(`No se pudo guardar en el servidor (${e.message}); se descargaron el Excel y el JSON de respaldo para que los guardes vos.`, 8000);
+    } catch (e2) { toast('No se pudo respaldar: ' + e.message, 7000); }
+    return false;
+  }
 }
 // ---------- 7. Datos y conexión ----------
 function renderDatos(main) {
@@ -762,8 +896,8 @@ function renderDatos(main) {
     <p class="small muted" style="margin:10px 0 0" ${cfg.modo === 'local' ? '' : 'hidden'}>En modo local todo queda en este navegador. Hacé una copia con «Descargar período (JSON)» antes de cerrar el mes.</p>
   </div>
   <div class="panel"><header><h2>Tomar información (PC de la oficina)</h2></header>
-    <div class="row"><label>URL del servicio <input id="cfgSync" value="${esc(cfg.syncUrl || 'http://localhost:8766')}" style="width:22em"></label><button id="btnTomar2" class="small">⟳ Tomar información ahora</button></div>
-    <p class="small muted" style="margin:8px 0 0">El servicio <code>sync/servicio_hoteleria.py</code> corre en la PC de la oficina y, cuando apretás el botón, lee la base Nutrir FL (kilos por corral e insumo) y WinCampo (movimientos en El Haras y stock sugerido al 1° del mes) para el período abierto. No corre solo: solo cuando lo pedís. Los movimientos que vos cargaste a mano se conservan; los del sistema se reemplazan.</p>
+    <div class="row"><label>URL del servicio <input id="cfgSync" value="${esc(cfg.syncUrl || 'http://localhost:8766')}" style="width:22em"></label><button id="btnTomar2" class="small">⟳ Tomar información ahora</button><button id="btnRespaldo2" class="small">Respaldar en el servidor ahora</button></div>
+    <p class="small muted" style="margin:8px 0 0">El servicio <code>sync/servicio_hoteleria.py</code> corre en la PC de la oficina y, cuando apretás el botón, lee la base Nutrir FL (kilos por corral e insumo) y WinCampo (movimientos en El Haras y stock sugerido al 1° del mes) para el período abierto. No corre solo: solo cuando lo pedís. Los movimientos que vos cargaste a mano se conservan; los del sistema se reemplazan. El mismo servicio recibe los respaldos: al cerrar un mes (o con el botón) guarda en la PC un Excel informe completo y un JSON con todos los datos del período y sus liquidaciones, por si se pierde la app o la base.</p>
   </div>
   <div class="panel"><header><h2>Períodos</h2></header>
     <div class="tablewrap"><table><thead><tr><th>Mes</th><th>Estado</th><th class="n">Hoteleros</th><th class="n">Filas alimentación</th><th class="n">Movimientos</th><th></th></tr></thead><tbody>
@@ -775,6 +909,7 @@ function renderDatos(main) {
   $('#cfgModo').onchange = e => { cfg.modo = e.target.value; lsSet(LS_CFG, cfg); actualizarPills(); render(); };
   $('#cfgSync').onchange = e => { cfg.syncUrl = e.target.value.trim(); lsSet(LS_CFG, cfg); };
   $('#btnTomar2').onclick = tomarInformacion;
+  $('#btnRespaldo2').onclick = () => respaldarServidor('manual');
   if (cfg.modo === 'supabase') {
     $('#sbUrl').onchange = e => { cfg.sbUrl = e.target.value.trim(); lsSet(LS_CFG, cfg); state.sb = null; };
     $('#sbKey').onchange = e => { cfg.sbKey = e.target.value.trim(); lsSet(LS_CFG, cfg); state.sb = null; };
@@ -874,6 +1009,8 @@ async function sbCargarPeriodos() {
       doc.precios = (await q(T('precios'), p.mes)).map(r => ({ fecha: r.fecha, insumo: r.insumo, precio: +r.precio }));
       state.periodos[p.mes] = doc;
     }
+    const liqs = await q(T('liquidaciones'));
+    state.liquidaciones = liqs.map(l => ({ mes: l.mes, hotelero: l.hotelero, cerrada_en: l.cerrada_en, datos: l.datos, estado: l.estado || 'pendiente', factura_nro: l.factura_nro || '', factura_fecha: l.factura_fecha || null })); lsSet(LS_LIQ, state.liquidaciones);
     if (per.length) setData(state.periodos[per.map(p => p.mes).sort().pop()]); lsSet(LS_KEY, state.periodos); render(); toast(per.length ? `${per.length} período(s) cargados de la nube` : 'Todavía no hay períodos en la nube: cargá o creá uno y apretá Guardar');
   } catch (e) { toast('Error al traer datos: ' + e.message, 5000); }
 }
@@ -889,6 +1026,16 @@ async function sbGuardarPeriodo(doc) {
     }
     state.dirty = false; actualizarPills(); toast('Período guardado en Supabase');
   } catch (e) { toast('Error al guardar: ' + (e.message || e), 6000); }
+}
+
+async function sbGuardarLiquidaciones(mes, rows) {
+  const sb = sbClient(); if (!sb || !state.user || !rows.length) return;
+  const r = await sb.from(T('liquidaciones')).upsert(rows.map(l => ({ mes: l.mes, hotelero: l.hotelero, cerrada_en: l.cerrada_en, datos: l.datos, estado: l.estado || 'pendiente', factura_nro: l.factura_nro || null, factura_fecha: l.factura_fecha || null })), { onConflict: 'mes,hotelero' });
+  if (r.error) toast('Error al guardar liquidaciones: ' + r.error.message, 6000);
+}
+async function sbBorrarLiquidaciones(mes) {
+  const sb = sbClient(); if (!sb || !state.user) return;
+  const r = await sb.from(T('liquidaciones')).delete().eq('mes', mes); if (r.error) toast('Error al borrar liquidaciones: ' + r.error.message, 6000);
 }
 
 // ---------- arranque ----------
