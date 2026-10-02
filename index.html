@@ -319,7 +319,7 @@ const state = {
 };
 function setData(doc) { state.data = doc; state.mes = doc.periodo.mes; state.periodos[state.mes] = doc; recalc(); }
 function recalc() { state.calc = calcular(state.data); actualizarPills(); }
-function marcar() { state.dirty = true; recalc(); guardarLocal(true); state.dirty = true; actualizarPills(); }
+function marcar() { state.dirty = true; recalc(); guardarLocal(true); state.dirty = true; actualizarPills(); if (typeof programarAutoguardado === 'function') programarAutoguardado(); }
 function guardarLocal(silencioso) { const ok = lsSet(LS_KEY, state.periodos); if (!silencioso) toast(ok ? 'Guardado en este navegador' : 'No se pudo guardar en el navegador'); if (ok) state.dirty = false; actualizarPills(); }
 function cargarDemo() {
   try { const raw = $('#demo-data').textContent.trim(); if (!raw || raw.startsWith('__')) return null; return JSON.parse(raw); } catch (e) { return null; }
@@ -331,7 +331,7 @@ function actualizarPills() {
   p.textContent = conDatos === 0 ? 'Sin datos de alimentación' : maxDif < 0.01 ? `Cierre diario OK · ${conDatos} días` : `Cierre con diferencia ${fmtN(maxDif, 1)} kg`;
   const m = $('#pillModo'); m.className = 'pill ' + (state.cfg.modo === 'supabase' ? (state.user ? 'ok' : 'warn') : '');
   m.textContent = state.cfg.modo === 'supabase' ? (state.user ? `Supabase · ${state.user.email}` : 'Supabase · sin sesión') : 'Modo local';
-  $('#btnGuardar').textContent = state.dirty ? 'Guardar •' : 'Guardar';
+  $('#btnGuardar').textContent = state.dirty ? 'Guardar •' : (state.ultimoGuardado ? 'Guardado ' + state.ultimoGuardado : 'Guardar');
 }
 </script>
 
@@ -652,7 +652,7 @@ function importarArchivo(file, coleccion) {
     let rows; try { rows = file.name.toLowerCase().endsWith('.csv') ? parseCSV(rd.result) : JSON.parse(rd.result); } catch (e) { toast('No se pudo leer el archivo: ' + e.message); return; }
     if (!Array.isArray(rows)) rows = rows[coleccion] || [];
     const mes = state.data.periodo.mes; const ok = rows.filter(r => r.fecha && String(r.fecha).startsWith(mes));
-    state.data.alimentacion = ok.map(r => ({ fecha: r.fecha, corral: String(r.corral || 'GENERAL').trim(), insumo: String(r.insumo).trim(), kg: num(r.kg) }));
+    state.data.alimentacion = ok.map(r => ({ fecha: r.fecha, corral: String(r.corral || 'GENERAL').trim(), insumo: String(r.insumo).trim(), kg: num(r.kg) })); state.aliCambiada = true;
     const known = new Set(state.data.insumos.map(i => i.nombre)); ok.forEach(r => { if (!known.has(r.insumo)) { state.data.insumos.push({ nombre: r.insumo, humedad: 0 }); known.add(r.insumo); } });
     marcar(); render(); toast(`${ok.length} filas importadas (${rows.length - ok.length} fuera del mes descartadas)`);
   };
@@ -966,7 +966,7 @@ function aplicarInformacion(j) {
   const doc = state.data, mes = state.mes;
   const ali = (j.alimentacion || []).filter(a => a.fecha && a.fecha.startsWith(mes)).map(a => ({ fecha: a.fecha, corral: String(a.corral || 'GENERAL').trim(), insumo: String(a.insumo).trim(), kg: num(a.kg) }));
   const known = new Set(doc.insumos.map(i => i.nombre)); ali.forEach(a => { if (!known.has(a.insumo)) { doc.insumos.push({ nombre: a.insumo, humedad: 0 }); known.add(a.insumo); } });
-  if (ali.length) doc.alimentacion = ali;
+  if (ali.length) { doc.alimentacion = ali; state.aliCambiada = true; }
   const ids = new Set(doc.hoteleros.map(h => h.id)); const nuevos = [];
   const movs = (j.movimientos || []).filter(m => m.fecha && m.fecha.startsWith(mes) && m.hotelero && m.cabezas).map(m => {
     if (!ids.has(m.hotelero)) { ids.add(m.hotelero); nuevos.push(m.hotelero); doc.hoteleros.push({ id: m.hotelero, nombre: m.hotelero, razon_social: '', cuit: '', tratamiento: 'propio', ajuste_pct: 0, ajuste_kg: 0, corrales: [], stock_inicial: 0, precio_hoteleria: null, paga_hoteleria: true, paga_sanidad: true, activo: true }); }
@@ -1015,20 +1015,31 @@ async function sbCargarPeriodos() {
     if (per.length) setData(state.periodos[per.map(p => p.mes).sort().pop()]); lsSet(LS_KEY, state.periodos); render(); toast(per.length ? `${per.length} período(s) cargados de la nube` : 'Todavía no hay períodos en la nube: cargá o creá uno y apretá Guardar');
   } catch (e) { toast('Error al traer datos: ' + e.message, 5000); }
 }
-async function sbGuardarPeriodo(doc) {
-  const sb = sbClient(); if (!sb || !state.user) { toast('Iniciá sesión en Supabase primero'); return; }
-  const mes = doc.periodo.mes; toast('Subiendo ' + fmtMes(mes) + '…');
+// Autoguardado: cada cambio sube a la nube a los pocos segundos (sin depender del botón Guardar).
+let autoT = null, guardando = false;
+function programarAutoguardado() {
+  if (state.cfg.modo !== 'supabase' || !state.user) return;
+  clearTimeout(autoT); autoT = setTimeout(() => sbGuardarPeriodo(state.data, { auto: true }), 4000);
+}
+async function sbGuardarPeriodo(doc, opts = {}) {
+  const sb = sbClient(); if (!sb || !state.user) { if (!opts.auto) toast('Iniciá sesión en Supabase primero'); return; }
+  if (guardando) { programarAutoguardado(); return; }
+  guardando = true;
+  const mes = doc.periodo.mes; if (!opts.auto) toast('Subiendo ' + fmtMes(mes) + '…');
   try {
     const esUltimo = mes >= Object.keys(state.periodos).sort().pop();   // el padrón global (base para «+ Mes») lo define solo el mes más reciente
     let r = { error: null };
     if (esUltimo) r = await sb.from(T('hoteleros')).upsert(doc.hoteleros.map(h => ({ id: h.id, nombre: h.nombre, razon_social: h.razon_social, cuit: h.cuit, tratamiento: h.tratamiento, ajuste_pct: h.ajuste_pct || 0, ajuste_kg: h.ajuste_kg || 0, corrales: h.corrales || [], precio_hoteleria: h.precio_hoteleria ?? null, paga_hoteleria: h.paga_hoteleria !== false, paga_sanidad: h.paga_sanidad !== false, activo: h.activo !== false }))); if (r.error) throw r.error;
     r = await sb.from(T('periodos')).upsert({ mes, markup: doc.periodo.markup, precio_hoteleria: doc.periodo.precio_hoteleria, precio_sanidad: doc.periodo.precio_sanidad, iva: doc.periodo.iva, estado: doc.periodo.estado || 'abierto', insumos: doc.insumos, precios_config: doc.precios_config || {}, hoteleros_cfg: doc.hoteleros, stock_inicial: Object.fromEntries(doc.hoteleros.map(h => [h.id, h.stock_inicial || 0])), stock_sugerido: doc.stock_sugerido || {} }); if (r.error) throw r.error;
-    for (const [t, rows] of [[T('alimentacion'), doc.alimentacion], [T('movimientos'), doc.movimientos], [T('precios'), doc.precios]]) {
+    const conAli = !opts.auto || state.aliCambiada;
+    for (const [t, rows] of [...(conAli ? [[T('alimentacion'), doc.alimentacion]] : []), [T('movimientos'), doc.movimientos], [T('precios'), doc.precios]]) {
       r = await sb.from(t).delete().eq('mes', mes); if (r.error) throw r.error;
       for (let i = 0; i < rows.length; i += 500) { r = await sb.from(t).insert(rows.slice(i, i + 500).map(x => ({ mes, ...x }))); if (r.error) throw r.error; }
     }
-    state.dirty = false; actualizarPills(); toast('Período guardado en Supabase');
-  } catch (e) { toast('Error al guardar: ' + (e.message || e), 6000); }
+    if (conAli) state.aliCambiada = false;
+    state.dirty = false; state.ultimoGuardado = new Date().toTimeString().slice(0, 5); actualizarPills(); if (!opts.auto) toast('Período guardado en Supabase');
+  } catch (e) { toast('Error al guardar en la nube: ' + (e.message || e) + ' — apretá Guardar para reintentar', 8000); }
+  finally { guardando = false; }
 }
 
 async function sbGuardarLiquidaciones(mes, rows) {
