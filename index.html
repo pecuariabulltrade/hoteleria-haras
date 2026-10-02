@@ -695,7 +695,7 @@ function liqHTML(snap, detalle) {
   return `
   <div class="liq" id="liq">
     <div class="head"><div class="emp"><b>${EMPRESA.nombre}</b><span>${EMPRESA.est}</span><span>${EMPRESA.cuit} · ${EMPRESA.tel}</span></div>
-      <div class="doc"><b>LIQUIDACIÓN DE HOTELERÍA</b><span class="muted">Período ${fmtFecha(dias[0])} al ${fmtFecha(dias[1])}</span><br><span class="muted">${snap.cerrada_en ? 'Cerrada' : 'Borrador'} ${emitida}</span>${snap.estado === 'facturada' ? `<br><span class="small">Factura ${esc(snap.factura_nro || '')}${snap.factura_fecha ? ' · ' + fmtFecha(snap.factura_fecha) : ''}</span>` : ''}</div></div>
+      <div class="doc"><b>LIQUIDACIÓN DE HOTELERÍA</b><span class="muted">Período ${fmtFecha(dias[0])} al ${fmtFecha(dias[1])}</span><br><span class="muted">${snap.cerrada_en ? 'Cerrada' : 'Borrador'} ${emitida}</span>${snap.estado === 'facturada' && (snap.factura_nro || snap.factura_fecha) ? `<br><span class="small">Factura ${esc(snap.factura_nro || '')}${snap.factura_fecha ? ' · ' + fmtFecha(snap.factura_fecha) : ''}</span>` : ''}</div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 16px;margin-top:12px">
       <div><span class="muted small">Hotelero</span><br><b>${esc(h.razon_social || h.nombre)}</b>${h.cuit ? `<br><span class="small">CUIT ${esc(h.cuit)}</span>` : ''}</div>
       <div><span class="muted small">Tratamiento del alimento</span><br>${TRATAMIENTOS[h.tratamiento].nombre}${h.tratamiento === 'no_propio' ? ` (+${fmtPct(h.ajuste_pct || 0)})` : ''}${h.tratamiento === 'cierto' ? ` · ${(h.corrales || []).join(', ')}` : ''}</div>
@@ -742,7 +742,8 @@ function renderLiquidaciones(main) {
     ${cerrado ? `<span class="pill ok">Mes cerrado · ${nGuardadas} liquidaciones guardadas</span>` : `<span class="pill warn">Mes abierto · borrador</span>`}</div>
     <div class="row">${cerrado ? `<button id="btnReabrir" class="danger">Reabrir mes</button>` : `<button id="btnCerrar" class="primary">Cerrar mes y guardar liquidaciones</button>`}<button id="btnPrint">Imprimir / PDF</button><button id="btnXlsHot">Excel de este hotelero</button><button id="btnXlsAll">Excel del mes (todos)</button><button id="btnRespaldo" title="Guarda en la PC de la oficina el Excel informe completo y el JSON del mes">Respaldar en el servidor</button></div>
   </div>
-  ${difiere ? `<div class="note warn noprint">Los datos del mes cambiaron después del cierre: la liquidación guardada da $ ${fmt$(guardada.datos.r.total)} y el cálculo actual $ ${fmt$(viva.datos.r.total)}. Se muestra la guardada; para rehacerla, reabrí el mes y volvé a cerrarlo.</div>` : ''}
+  ${cerrado && guardada && guardada.datos.origen === 'planilla' ? `<div class="note noprint">Mes importado de la planilla Excel (${esc(guardada.datos.archivo || '')}): se muestra la liquidación tal cual se facturó entonces. Con las reglas actuales de la app el cálculo daría $ ${fmt$(viva.datos.r.total)}.</div>` : ''}
+  ${difiere && !(guardada && guardada.datos.origen === 'planilla') ? `<div class="note warn noprint">Los datos del mes cambiaron después del cierre: la liquidación guardada da $ ${fmt$(guardada.datos.r.total)} y el cálculo actual $ ${fmt$(viva.datos.r.total)}. Se muestra la guardada; para rehacerla, reabrí el mes y volvé a cerrarlo.</div>` : ''}
   ${cerrado && !guardada ? `<div class="note warn noprint">Este hotelero no tiene liquidación guardada en el cierre (no tenía importes). Se muestra el cálculo actual.</div>` : ''}
   ${liqHTML(snap, state.liqDetalle)}`;
   $('#liqHot').onchange = e => { state.liqHot = e.target.value; render(); };
