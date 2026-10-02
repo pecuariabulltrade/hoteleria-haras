@@ -29,6 +29,7 @@ create table if not exists hot_periodos (
   precios_config   jsonb default '{}',              -- {maiz:{flete_largo, flete_corto, piso, cotizaciones[]}, silo:{adicional, rendimiento, factor}}
   stock_inicial    jsonb default '{}',              -- {hotelero_id: cabezas al 1° del mes} (lo fija el usuario)
   stock_sugerido   jsonb default '{}',              -- {hotelero_id: cabezas al 1° del mes según WinCampo} (referencia)
+  hoteleros_cfg    jsonb,                           -- padrón y tratamientos tal como estaban en ese mes (cada mes guarda el suyo); incluye grupo: 'ganaderia' | 'tercero' (dashboard)
   actualizado      timestamptz default now()
 );
 
@@ -67,15 +68,31 @@ create table if not exists hot_precios (
   unique (mes, fecha, insumo)
 );
 
+-- Liquidaciones guardadas al cerrar cada mes (una por hotelero), con su estado de facturación
+create table if not exists hot_liquidaciones (
+  id            bigserial primary key,
+  mes           text not null,
+  hotelero      text not null,
+  cerrada_en    timestamptz not null default now(),
+  datos         jsonb not null,                     -- foto completa de la liquidación (hotelero, parámetros, consumo, totales, detalle diario)
+  estado        text not null default 'pendiente' check (estado in ('pendiente','facturada')),
+  factura_nro   text,
+  factura_fecha date,
+  unique (mes, hotelero)
+);
+
 -- RLS: usuarios autenticados, acceso completo
 alter table hot_hoteleros    enable row level security;
 alter table hot_periodos     enable row level security;
 alter table hot_alimentacion enable row level security;
 alter table hot_movimientos  enable row level security;
 alter table hot_precios      enable row level security;
+alter table hot_liquidaciones enable row level security;
 do $$ declare t text; begin
-  foreach t in array array['hot_hoteleros','hot_periodos','hot_alimentacion','hot_movimientos','hot_precios'] loop
+  foreach t in array array['hot_hoteleros','hot_periodos','hot_alimentacion','hot_movimientos','hot_precios','hot_liquidaciones'] loop
     execute format('drop policy if exists "hot_auth_all" on %I', t);
     execute format('create policy "hot_auth_all" on %I for all to authenticated using (true) with check (true)', t);
   end loop;
 end $$;
+
+-- Vista hot_resumen_mensual (la consume el portal de costos): ver sql/hot_resumen_mensual.sql. No cambiar sin avisar.
