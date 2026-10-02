@@ -12,17 +12,18 @@
   --bg:#f4f3ee; --panel:#ffffff; --panel2:#ebe9e1; --fg:#1f241d; --muted:#5f665a; --line:#d6d4c9;
   --accent:#3b6a3a; --accent-fg:#ffffff; --accent-soft:#e3eddf;
   --ok:#2d7a3a; --warn:#b2721a; --bad:#b23a2e; --bad-soft:#f6e1de; --warn-soft:#f7ecd7;
+  --s-gan:#2f8f3f; --s-ter:#2a78d6;   /* series del dashboard: módulo ganadería / terceros (validadas para daltonismo) */
   --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#171a16; --panel:#20241f; --panel2:#2a2f28; --fg:#e8e8e0; --muted:#a3a99c; --line:#3a4038;
   --accent:#7fb37a; --accent-fg:#101510; --accent-soft:#2b3a2a;
-  --ok:#7fc98a; --warn:#e0a84a; --bad:#e3756a; --bad-soft:#4a2a27; --warn-soft:#4a3d22; color-scheme:dark } }
+  --ok:#7fc98a; --warn:#e0a84a; --bad:#e3756a; --bad-soft:#4a2a27; --warn-soft:#4a3d22; --s-gan:#3a9a4a; --s-ter:#3987e5; color-scheme:dark } }
 :root[data-theme="dark"]{
   --bg:#171a16; --panel:#20241f; --panel2:#2a2f28; --fg:#e8e8e0; --muted:#a3a99c; --line:#3a4038;
   --accent:#7fb37a; --accent-fg:#101510; --accent-soft:#2b3a2a;
-  --ok:#7fc98a; --warn:#e0a84a; --bad:#e3756a; --bad-soft:#4a2a27; --warn-soft:#4a3d22; color-scheme:dark }
+  --ok:#7fc98a; --warn:#e0a84a; --bad:#e3756a; --bad-soft:#4a2a27; --warn-soft:#4a3d22; --s-gan:#3a9a4a; --s-ter:#3987e5; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 var(--font);}
@@ -84,6 +85,22 @@ td.bad{color:var(--bad);font-weight:600} td.ok{color:var(--ok)}
 .tag.cierto{background:#e4ecf6;color:#2c5a8a} .tag.propio{background:var(--accent-soft);color:var(--accent)} .tag.no_propio{background:var(--warn-soft);color:var(--warn)} .tag.residual{background:var(--panel2);color:var(--fg)}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .tag.cierto{background:#27384d;color:#9dc0e8} }
 :root[data-theme="dark"] .tag.cierto{background:#27384d;color:#9dc0e8}
+/* dashboard */
+.chartwrap{min-width:0;overflow:hidden}
+.kpis-wide{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.chart{display:block;max-width:100%}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axis{stroke:var(--muted);stroke-width:1}
+.chart .tick{fill:var(--muted);font-size:11px;font-family:var(--font)}
+.chart .lbl{fill:var(--fg);font-size:12px;font-family:var(--font)}
+.chart .val{fill:var(--muted);font-size:11.5px;font-family:var(--mono)}
+.chart .line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .dot{stroke:var(--panel);stroke-width:2}
+.chart .hit{fill:transparent}
+.chart [data-tip]:hover{opacity:.85}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.tip{position:fixed;z-index:30;background:var(--fg);color:var(--bg);padding:6px 9px;border-radius:5px;font-size:12px;line-height:1.4;pointer-events:none;white-space:pre-line;display:none;max-width:300px;font-variant-numeric:tabular-nums}
 /* liquidación */
 .liq{background:var(--panel);color:var(--fg);max-width:860px;margin:0 auto;padding:28px 32px;border:1px solid var(--line);border-radius:8px}
 .liq .head{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--fg);padding-bottom:10px}
@@ -129,6 +146,7 @@ td.bad{color:var(--bad);font-weight:600} td.ok{color:var(--ok)}
   <button data-tab="alimentacion">Alimentación y sanidad</button>
   <button data-tab="liquidaciones">Liquidaciones</button>
   <button data-tab="facturacion">Facturación</button>
+  <button data-tab="dashboard">Dashboard</button>
   <button data-tab="datos">Datos y conexión</button>
 </nav>
 <main id="main"></main>
@@ -340,7 +358,7 @@ function actualizarPills() {
 function render() {
   $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
   const main = $('#main'); main.innerHTML = '';
-  const fn = { control: renderControl, hoteleros: renderHoteleros, parametros: renderParametros, movimientos: renderMovimientos, alimentacion: renderAlimentacion, liquidaciones: renderLiquidaciones, facturacion: renderFacturacion, datos: renderDatos }[state.tab];
+  const fn = { control: renderControl, hoteleros: renderHoteleros, parametros: renderParametros, movimientos: renderMovimientos, alimentacion: renderAlimentacion, liquidaciones: renderLiquidaciones, facturacion: renderFacturacion, dashboard: renderDashboard, datos: renderDatos }[state.tab];
   fn(main);
   renderSelPeriodo();
 }
@@ -396,14 +414,15 @@ function renderControl(main) {
 function renderHoteleros(main) {
   const hots = state.data.hoteleros, P = state.data.periodo, sug = state.data.stock_sugerido || {}; const corrales = [...new Set(state.data.alimentacion.map(a => a.corral))].sort();
   main.innerHTML = `
-  <div class="panel"><header><h2>Padrón de hoteleros y tratamiento</h2><span class="sub">El tratamiento define cómo se le asignan los kilos del día. El stock inicial es el del 1° del mes (antes de los movimientos): lo fijás vos; el sugerido viene de WinCampo al tomar información. Hotelería en blanco = precio general del mes.</span>
+  <div class="panel"><header><h2>Padrón de hoteleros y tratamiento</h2><span class="sub">El tratamiento define cómo se le asignan los kilos del día. Módulo: si lo facturado es al módulo ganadería o a un tercero (para el dashboard). El stock inicial es el del 1° del mes (antes de los movimientos): lo fijás vos; el sugerido viene de WinCampo al tomar información. Hotelería en blanco = precio general del mes.</span>
   <span class="spacer"></span><button id="btnAddHot" class="small">+ Hotelero</button></header>
-  <div class="tablewrap"><table><thead><tr><th>Activo</th><th>Nombre</th><th>Razón social</th><th>CUIT</th><th>Tratamiento</th><th>Ajuste</th><th>Corrales (cierto)</th><th class="n">Stock inicial</th><th class="n">Sugerido sistema</th><th class="n">Hotelería $/cab/día</th><th>Paga hotelería</th><th>Paga sanidad</th><th></th></tr></thead><tbody>
+  <div class="tablewrap"><table><thead><tr><th>Activo</th><th>Nombre</th><th>Razón social</th><th>CUIT</th><th>Módulo</th><th>Tratamiento</th><th>Ajuste</th><th>Corrales (cierto)</th><th class="n">Stock inicial</th><th class="n">Sugerido sistema</th><th class="n">Hotelería $/cab/día</th><th>Paga hotelería</th><th>Paga sanidad</th><th></th></tr></thead><tbody>
   ${hots.map((h, i) => `<tr data-i="${i}">
     <td><input type="checkbox" data-f="activo" ${h.activo !== false ? 'checked' : ''}></td>
     <td><input data-f="nombre" value="${esc(h.nombre)}" style="width:9em"></td>
     <td><input data-f="razon_social" value="${esc(h.razon_social || '')}" style="width:13em"></td>
     <td><input data-f="cuit" value="${esc(h.cuit || '')}" style="width:9em"></td>
+    <td><select data-f="grupo" title="Para el dashboard: facturado a módulo ganadería o a terceros">${Object.entries(GRUPOS).map(([k, n]) => `<option value="${k}" ${(h.grupo || grupoDefault(h)) === k ? 'selected' : ''}>${n}</option>`).join('')}</select></td>
     <td><select data-f="tratamiento">${Object.entries(TRATAMIENTOS).map(([k, t]) => `<option value="${k}" ${h.tratamiento === k ? 'selected' : ''}>${t.nombre}</option>`).join('')}</select></td>
     <td>${h.tratamiento === 'no_propio' ? `<input type="number" step="0.5" data-f="ajuste_pct_ui" value="${((h.ajuste_pct || 0) * 100).toFixed(1)}" style="width:5em"> %` : h.tratamiento === 'cierto' ? `<input type="number" step="10" data-f="ajuste_kg" value="${h.ajuste_kg || 0}" style="width:6em"> kg/día` : '<span class="muted">—</span>'}</td>
     <td>${h.tratamiento === 'cierto' ? `<input data-f="corrales_ui" list="dlCorrales" value="${esc((h.corrales || []).join(', '))}" placeholder="CORRAL 12, CORRAL 13" style="width:14em">` : '<span class="muted">—</span>'}</td>
@@ -663,6 +682,150 @@ function parseCSV(txt) {
   const head = lines[0].split(sep).map(s => s.trim().toLowerCase());
   return lines.slice(1).map(l => { const c = l.split(sep); const o = {}; head.forEach((h, i) => o[h] = (c[i] || '').trim()); if (o.fecha && o.fecha.includes('/')) { const [d, m, y] = o.fecha.split('/'); o.fecha = `${y}-${m}-${d}`; } return o; });
 }
+</script>
+
+<script>
+// ---------- 5b. Dashboard: todos los meses, módulo ganadería vs. terceros ----------
+// El "módulo" de cada hotelero se edita en la pestaña Hoteleros (campo Módulo) y viaja con el padrón del mes (hoteleros_cfg).
+// Si un hotelero no lo tiene definido, se usa la lista por defecto: Bulltrade, PEGSA, El Saguipe y Alonso Danae son módulo ganadería; el resto, terceros.
+const GRUPOS = { ganaderia: 'Módulo ganadería', tercero: 'Terceros' };
+const GANADERIA_DEFAULT = ['BULLTRADE', 'PEGSA', 'EL SAGUIPE', 'ALONSO DANAE'];
+const normTxt = s => String(s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+function grupoDefault(h) { return (GANADERIA_DEFAULT.includes(normTxt(h.id)) || GANADERIA_DEFAULT.includes(normTxt(h.nombre))) ? 'ganaderia' : 'tercero'; }
+function grupoDe(hid, hLiq) {
+  const meses = Object.keys(state.periodos).sort(); const ult = meses.length ? state.periodos[meses[meses.length - 1]] : state.data;
+  const h = (ult.hoteleros || []).find(x => x.id === hid) || state.data.hoteleros.find(x => x.id === hid);
+  if (h && h.grupo) return h.grupo;
+  if (hLiq && hLiq.grupo) return hLiq.grupo;
+  return grupoDefault(h || hLiq || { id: hid });
+}
+
+const DASH_COL = { ganaderia: 'var(--s-gan)', tercero: 'var(--s-ter)' };
+const mesCorto = m => ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][+m.slice(5, 7) - 1] + ' ' + m.slice(2, 4);
+const fmtM = v => Math.abs(v) >= 1e7 ? fmtN(v / 1e6, 0) + ' M' : Math.abs(v) >= 1e6 ? fmtN(v / 1e6, 1) + ' M' : Math.abs(v) >= 1e3 ? fmtN(v / 1e3, 0) + ' mil' : fmtN(v, 0);
+const fmtT = kg => fmtN(kg / 1000, 0) + ' t';
+function niceTicks(max, n = 4) {
+  if (!(max > 0)) return [0, 1];
+  const raw = max / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p, step = (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p;
+  const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(v); if (out[out.length - 1] < max - 1e-9) out.push(out[out.length - 1] + step); return out;
+}
+// índices de las etiquetas del eje x: una cada tantas para que no se pisen, siempre la última
+const labelIdx = (n, pw) => { const every = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw / 48)))); const idx = []; for (let i = 0; i < n; i += every) idx.push(i); if (idx[idx.length - 1] !== n - 1) { if (n - 1 - idx[idx.length - 1] < every * 0.6) idx.pop(); idx.push(n - 1); } return new Set(idx); };
+const roundTop = (x, y, w, h, r) => { r = Math.max(0, Math.min(r, h / 2, w / 2)); return `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`; };
+const roundRight = (x, y, w, h, r) => { r = Math.max(0, Math.min(r, h / 2, w / 2)); return `M${x},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} H${x} Z`; };
+
+// Barras apiladas por categoría (mes). cats: [{label, vals:{key:v}, tips:{key:texto}, tipTotal}], series: [{key, color}]
+function svgBarras(cats, series, o) {
+  const W = o.W, H = o.H || 260, mL = o.mL || 70, mR = 10, mT = 10, mB = 26, pw = W - mL - mR, ph = H - mT - mB;
+  const max = Math.max(0, ...cats.map(c => series.reduce((a, s) => a + (c.vals[s.key] || 0), 0))); const ticks = niceTicks(max); const top = ticks[ticks.length - 1] || 1;
+  const y = v => mT + ph - v / top * ph; const bw = pw / Math.max(1, cats.length), barW = Math.min(44, bw * 0.62); const lab = labelIdx(cats.length, pw);
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.aria || '')}">`;
+  ticks.forEach(t => { s += `<line class="grid" x1="${mL}" x2="${W - mR}" y1="${y(t)}" y2="${y(t)}"/><text class="tick" x="${mL - 8}" y="${y(t) + 4}" text-anchor="end">${esc(o.fmtY(t))}</text>`; });
+  cats.forEach((c, i) => {
+    const x = mL + bw * i + (bw - barW) / 2; let acc = 0; const segs = series.filter(sr => (c.vals[sr.key] || 0) > 0);
+    s += `<rect x="${mL + bw * i}" y="${mT}" width="${bw}" height="${ph}" fill="transparent" data-tip="${esc(c.tipTotal || '')}"/>`;
+    segs.forEach((sr, j) => { const v = c.vals[sr.key], y1 = y(acc + v), y0 = y(acc), isTop = j === segs.length - 1, h = Math.max(0, y0 - y1 - (isTop ? 0 : 2));
+      s += isTop ? `<path d="${roundTop(x, y1, barW, h, 4)}" fill="${sr.color}" data-tip="${esc(c.tips[sr.key] || '')}"/>` : `<rect x="${x}" y="${y1}" width="${barW}" height="${h}" fill="${sr.color}" data-tip="${esc(c.tips[sr.key] || '')}"/>`; acc += v; });
+    if (lab.has(i)) s += `<text class="tick" x="${x + barW / 2}" y="${H - mB + 16}" text-anchor="middle">${esc(c.label)}</text>`;
+  });
+  s += `<line class="axis" x1="${mL}" x2="${W - mR}" y1="${y(0)}" y2="${y(0)}"/></svg>`; return s;
+}
+// Línea con marcadores. pts: [{label, v, tip}]
+function svgLinea(pts, o) {
+  const W = o.W, H = o.H || 240, mL = 58, mR = 14, mT = 12, mB = 26, pw = W - mL - mR, ph = H - mT - mB;
+  const max = Math.max(0, ...pts.map(p => p.v)); const ticks = niceTicks(max); const top = ticks[ticks.length - 1] || 1;
+  const y = v => mT + ph - v / top * ph, x = i => pts.length === 1 ? mL + pw / 2 : mL + pw * i / (pts.length - 1);
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.aria || '')}">`;
+  ticks.forEach(t => { s += `<line class="grid" x1="${mL}" x2="${W - mR}" y1="${y(t)}" y2="${y(t)}"/><text class="tick" x="${mL - 8}" y="${y(t) + 4}" text-anchor="end">${esc(o.fmtY(t))}</text>`; });
+  s += `<path class="line" d="${pts.map((p, i) => (i ? 'L' : 'M') + x(i) + ',' + y(p.v)).join(' ')}" stroke="${o.color}"/>`;
+  const lab = labelIdx(pts.length, pw);
+  pts.forEach((p, i) => { s += `<circle class="hit" cx="${x(i)}" cy="${y(p.v)}" r="14" data-tip="${esc(p.tip)}"/><circle class="dot" cx="${x(i)}" cy="${y(p.v)}" r="4" fill="${o.color}" data-tip="${esc(p.tip)}"/>`;
+    if (lab.has(i)) s += `<text class="tick" x="${x(i) + (i === pts.length - 1 ? 6 : 0)}" y="${H - mB + 16}" text-anchor="${i === pts.length - 1 && pts.length > 1 ? 'end' : 'middle'}">${esc(p.label)}</text>`; });
+  s += `<line class="axis" x1="${mL}" x2="${W - mR}" y1="${y(0)}" y2="${y(0)}"/></svg>`; return s;
+}
+// Barras horizontales ordenadas. rows: [{label, v, color, tip}]
+function svgBarrasH(rows, o) {
+  const W = o.W, rh = 26, mL = 118, mR = 78, mT = 4, H = mT + rows.length * rh + 6, pw = W - mL - mR;
+  const max = Math.max(0, ...rows.map(r => r.v)) || 1;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.aria || '')}">`;
+  rows.forEach((r, i) => { const y = mT + i * rh, w = Math.max(2, r.v / max * pw);
+    s += `<rect x="0" y="${y}" width="${W}" height="${rh}" fill="transparent" data-tip="${esc(r.tip)}"/><text class="lbl" x="${mL - 10}" y="${y + rh / 2 + 4}" text-anchor="end">${esc(r.label)}</text>` +
+      `<path d="${roundRight(mL, y + 6, w, rh - 12, 4)}" fill="${r.color}" data-tip="${esc(r.tip)}"/><text class="val" x="${mL + w + 8}" y="${y + rh / 2 + 4}">${esc(o.fmtV(r.v))}</text>`; });
+  s += `<line class="axis" x1="${mL}" x2="${mL}" y1="${mT}" y2="${H - 6}"/></svg>`; return s;
+}
+function legendHTML(items) { return `<div class="legend">${items.map(i => `<span><i style="background:${i.color}"></i>${esc(i.label)}</span>`).join('')}</div>`; }
+
+function renderDashboard(main) {
+  const liqs = state.liquidaciones || [];
+  const f = state.dash || (state.dash = { anio: 'todos', imp: 'subtotal' });
+  const anios = [...new Set(liqs.map(l => l.mes.slice(0, 4)))].sort();
+  const sel = liqs.filter(l => f.anio === 'todos' || l.mes.startsWith(f.anio));
+  const campo = f.imp === 'total' ? 'total' : 'subtotal', impLab = campo === 'total' ? 'con IVA' : 'neto';
+  const grupoL = l => grupoDe(l.hotelero, l.datos.h);
+  const sum = (ls, k) => ls.reduce((a, l) => a + (l.datos.r[k] || 0), 0);
+  const meses = [...new Set(sel.map(l => l.mes))].sort();
+  const porMes = meses.map(m => { const ls = sel.filter(l => l.mes === m), gan = ls.filter(l => grupoL(l) === 'ganaderia'), ter = ls.filter(l => grupoL(l) !== 'ganaderia');
+    return { mes: m, n: ls.length, pend: ls.filter(l => l.estado !== 'facturada').length, kg: sum(ls, 'kg_tot'), cd: sum(ls, 'cab_dias'), alimento: sum(ls, 'alimento'), hoteleria: sum(ls, 'hoteleria'), sanidad: sum(ls, 'sanidad'), subtotal: sum(ls, 'subtotal'), iva: sum(ls, 'iva'), total: sum(ls, 'total'), gan: sum(gan, campo), ter: sum(ter, campo), planilla: ls.some(l => l.datos.origen === 'planilla') }; });
+  const hids = [...new Set(sel.map(l => l.hotelero))];
+  const porHot = hids.map(id => { const ls = sel.filter(l => l.hotelero === id).sort((a, b) => a.mes.localeCompare(b.mes)); return { id, nombre: ls[ls.length - 1].datos.h.nombre, grupo: grupoL(ls[0]), meses: ls.length, kg: sum(ls, 'kg_tot'), cd: sum(ls, 'cab_dias'), subtotal: sum(ls, 'subtotal'), total: sum(ls, 'total'), imp: sum(ls, campo), pend: ls.filter(l => l.estado !== 'facturada').length }; }).sort((a, b) => b.imp - a.imp);
+  const T = k => porMes.reduce((a, m) => a + m[k], 0);
+  const tot = T(campo), gan = T('gan'), ter = T('ter'), kg = T('kg'), cd = T('cd');
+  const pend = sel.filter(l => l.estado !== 'facturada'), pend$ = pend.reduce((a, l) => a + l.datos.r.total, 0);
+  const pct = v => tot ? fmtN(v / tot * 100, 1) + ' %' : '—';
+  const serie = [{ key: 'gan', color: DASH_COL.ganaderia }, { key: 'ter', color: DASH_COL.tercero }];
+  const leyenda = legendHTML([{ label: GRUPOS.ganaderia, color: DASH_COL.ganaderia }, { label: GRUPOS.tercero, color: DASH_COL.tercero }]);
+
+  main.innerHTML = `
+  <div class="row noprint" style="justify-content:space-between">
+    <div class="row"><label>Año <select id="dashAnio"><option value="todos" ${f.anio === 'todos' ? 'selected' : ''}>Todos</option>${anios.map(a => `<option value="${a}" ${f.anio === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+    <label>Importes <select id="dashImp"><option value="subtotal" ${campo === 'subtotal' ? 'selected' : ''}>Neto (sin IVA)</option><option value="total" ${campo === 'total' ? 'selected' : ''}>Total (con IVA)</option></select></label></div>
+    <span class="pill">${sel.length} liquidaciones · ${meses.length} meses</span>
+  </div>
+  ${!sel.length ? '<div class="panel muted">Todavía no hay liquidaciones guardadas. Se generan al cerrar cada mes en la pestaña Liquidaciones.</div>' : `
+  <div class="kpis kpis-wide">
+    <div class="kpi"><div class="l">Total liquidado (${impLab})</div><div class="v">$ ${fmtN(tot)}</div></div>
+    <div class="kpi"><div class="l">Módulo ganadería</div><div class="v">$ ${fmtN(gan)} <small>${pct(gan)}</small></div></div>
+    <div class="kpi"><div class="l">Terceros</div><div class="v">$ ${fmtN(ter)} <small>${pct(ter)}</small></div></div>
+    <div class="kpi"><div class="l">Kg alimentados</div><div class="v">${fmtN(kg)} <small>kg TC</small></div></div>
+    <div class="kpi"><div class="l">Cabezas·día</div><div class="v">${fmtN(cd)}</div></div>
+    <div class="kpi"><div class="l">Promedio por mes (${impLab})</div><div class="v">$ ${fmtN(tot / meses.length)}</div></div>
+    <div class="kpi ${pend.length ? 'bad' : 'ok'}"><div class="l">Pendiente de facturar (con IVA)</div><div class="v">$ ${fmtN(pend$)} <small>${pend.length} liq.</small></div></div>
+  </div>
+  <div class="panel"><header><h2>Liquidado por mes (${impLab})</h2><span class="sub">Módulo ganadería: ${GANADERIA_DEFAULT.map(x => x === 'PEGSA' ? x : x.toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase())).join(', ')} (se edita en Hoteleros → Módulo). El resto, terceros.</span><span class="spacer"></span>${leyenda}</header><div id="chMes" class="chartwrap"></div></div>
+  <div class="grid2">
+    <div class="panel"><header><h2>Kg alimentados por mes</h2><span class="sub">Toneladas tal cual, todos los hoteleros</span></header><div id="chKg" class="chartwrap"></div></div>
+    <div class="panel"><header><h2>Liquidado por hotelero (${impLab})</h2><span class="sub">${f.anio === 'todos' ? 'Todos los meses' : 'Año ' + f.anio}</span><span class="spacer"></span>${leyenda}</header><div id="chHot" class="chartwrap"></div></div>
+  </div>
+  <div class="panel"><header><h2>Resumen por mes</h2><span class="sub">Una fila por mes cerrado, sumando las liquidaciones guardadas de todos los hoteleros.</span></header>
+  <div class="tablewrap"><table><thead><tr><th>Mes</th><th class="n">Liq.</th><th class="n">Kg TC</th><th class="n">Cab·día</th><th class="n">kg/cab/día</th><th class="n">$ Alimento</th><th class="n">$ Hotelería</th><th class="n">$ Sanidad</th><th class="n">Neto</th><th class="n">IVA</th><th class="n">Total</th><th class="n">Ganadería (${impLab})</th><th class="n">Terceros (${impLab})</th><th class="n">$/cab/día neto</th><th>Facturación</th></tr></thead><tbody>
+  ${porMes.slice().reverse().map(m => `<tr><td><b>${fmtMes(m.mes)}</b>${m.planilla ? ' <span class="tag" title="Importado de la planilla Excel">planilla</span>' : ''}</td><td class="n">${m.n}</td><td class="n">${fmtN(m.kg)}</td><td class="n">${fmtN(m.cd)}</td><td class="n">${fmtN(m.cd ? m.kg / m.cd : 0, 2)}</td><td class="n">${fmtN(m.alimento)}</td><td class="n">${fmtN(m.hoteleria)}</td><td class="n">${fmtN(m.sanidad)}</td><td class="n">${fmtN(m.subtotal)}</td><td class="n">${fmtN(m.iva)}</td><td class="n"><b>${fmtN(m.total)}</b></td><td class="n">${fmtN(m.gan)}</td><td class="n">${fmtN(m.ter)}</td><td class="n">${fmtN(m.cd ? m.subtotal / m.cd : 0)}</td><td>${m.pend ? `<span class="pill warn">${m.pend} pendiente${m.pend > 1 ? 's' : ''}</span>` : '<span class="pill ok">Facturado</span>'}</td></tr>`).join('')}
+  <tr class="total"><td>Total</td><td class="n">${T('n')}</td><td class="n">${fmtN(kg)}</td><td class="n">${fmtN(cd)}</td><td class="n">${fmtN(cd ? kg / cd : 0, 2)}</td><td class="n">${fmtN(T('alimento'))}</td><td class="n">${fmtN(T('hoteleria'))}</td><td class="n">${fmtN(T('sanidad'))}</td><td class="n">${fmtN(T('subtotal'))}</td><td class="n">${fmtN(T('iva'))}</td><td class="n">${fmtN(T('total'))}</td><td class="n">${fmtN(gan)}</td><td class="n">${fmtN(ter)}</td><td class="n">${fmtN(cd ? T('subtotal') / cd : 0)}</td><td>${pend.length ? `<span class="pill warn">${pend.length} pendientes</span>` : '<span class="pill ok">Todo facturado</span>'}</td></tr>
+  </tbody></table></div></div>
+  <div class="panel"><header><h2>Resumen por hotelero</h2><span class="sub">Ordenado por importe liquidado en el período elegido.</span></header>
+  <div class="tablewrap"><table><thead><tr><th>Hotelero</th><th>Módulo</th><th class="n">Meses</th><th class="n">Kg TC</th><th class="n">Cab·día</th><th class="n">kg/cab/día</th><th class="n">Neto</th><th class="n">Total</th><th class="n">% del total</th><th class="n">Pend. facturar</th></tr></thead><tbody>
+  ${porHot.map(h => `<tr><td><b>${esc(h.nombre)}</b></td><td><span class="tag" style="color:${DASH_COL[h.grupo]};background:transparent;border:1px solid ${DASH_COL[h.grupo]}">${GRUPOS[h.grupo]}</span></td><td class="n">${h.meses}</td><td class="n">${fmtN(h.kg)}</td><td class="n">${fmtN(h.cd)}</td><td class="n">${fmtN(h.cd ? h.kg / h.cd : 0, 2)}</td><td class="n">${fmtN(h.subtotal)}</td><td class="n"><b>${fmtN(h.total)}</b></td><td class="n">${pct(h.imp)}</td><td class="n">${h.pend || ''}</td></tr>`).join('')}
+  ${['ganaderia', 'tercero'].map(g => { const hs = porHot.filter(h => h.grupo === g), S = k => hs.reduce((a, h) => a + h[k], 0); return `<tr class="total"><td>${GRUPOS[g]}</td><td></td><td class="n"></td><td class="n">${fmtN(S('kg'))}</td><td class="n">${fmtN(S('cd'))}</td><td class="n">${fmtN(S('cd') ? S('kg') / S('cd') : 0, 2)}</td><td class="n">${fmtN(S('subtotal'))}</td><td class="n">${fmtN(S('total'))}</td><td class="n">${pct(S('imp'))}</td><td class="n">${S('pend') || ''}</td></tr>`; }).join('')}
+  </tbody></table></div></div>`}
+  <div class="tip" id="tip"></div>`;
+  $('#dashAnio').onchange = e => { f.anio = e.target.value; render(); };
+  $('#dashImp').onchange = e => { f.imp = e.target.value; render(); };
+  if (!sel.length) return;
+
+  const w = el => Math.max(300, el.clientWidth || 600);
+  const $$$ = s => `$ ${fmtN(s)}`;
+  $('#chMes').innerHTML = svgBarras(porMes.map(m => ({ label: mesCorto(m.mes), vals: { gan: m.gan, ter: m.ter },
+    tips: { gan: `${fmtMes(m.mes)} · ${GRUPOS.ganaderia}\n${$$$(m.gan)} (${impLab})`, ter: `${fmtMes(m.mes)} · ${GRUPOS.tercero}\n${$$$(m.ter)} (${impLab})` },
+    tipTotal: `${fmtMes(m.mes)}\nTotal ${impLab}: ${$$$(m[campo])}\nGanadería ${$$$(m.gan)} · Terceros ${$$$(m.ter)}\n${fmtN(m.kg)} kg TC · ${fmtN(m.cd)} cab·día` })), serie, { W: w($('#chMes')), H: 280, fmtY: v => '$ ' + fmtM(v), aria: 'Liquidado por mes, apilado por módulo ganadería y terceros' });
+  $('#chKg').innerHTML = svgLinea(porMes.map(m => ({ label: mesCorto(m.mes), v: m.kg, tip: `${fmtMes(m.mes)}\n${fmtN(m.kg)} kg TC\n${fmtN(m.cd ? m.kg / m.cd : 0, 2)} kg/cab/día · ${fmtN(m.cd)} cab·día` })), { W: w($('#chKg')), H: 240, color: 'var(--accent)', fmtY: fmtT, aria: 'Kilos alimentados por mes' });
+  $('#chHot').innerHTML = svgBarrasH(porHot.map(h => ({ label: h.nombre, v: h.imp, color: DASH_COL[h.grupo], tip: `${h.nombre} · ${GRUPOS[h.grupo]}\n${$$$(h.imp)} (${impLab}) · ${pct(h.imp)}\n${h.meses} mes${h.meses > 1 ? 'es' : ''} · ${fmtN(h.kg)} kg TC` })), { W: w($('#chHot')), fmtV: v => '$ ' + fmtM(v), aria: 'Liquidado por hotelero' });
+
+  const tip = $('#tip');
+  main.onmousemove = e => { const t = e.target.closest && e.target.closest('[data-tip]'); if (!t || !t.dataset.tip) { tip.style.display = 'none'; return; }
+    tip.textContent = t.dataset.tip; tip.style.display = 'block'; const r = tip.getBoundingClientRect(); const x = Math.min(e.clientX + 14, innerWidth - r.width - 8), y = e.clientY - r.height - 12 < 8 ? e.clientY + 18 : e.clientY - r.height - 12; tip.style.left = x + 'px'; tip.style.top = y + 'px'; };
+  main.onmouseleave = () => { tip.style.display = 'none'; };
+}
+let dashResizeT = null;
+window.addEventListener('resize', () => { if (state.tab !== 'dashboard') return; clearTimeout(dashResizeT); dashResizeT = setTimeout(render, 200); });
 </script>
 
 <script>
