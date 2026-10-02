@@ -95,4 +95,4 @@ do $$ declare t text; begin
   end loop;
 end $$;
 
--- Vista hot_resumen_mensual (la consume el portal de costos): ver sql/hot_resumen_mensual.sql. No cambiar sin avisar.
+-- Vista hot_resumen_mensual (la consume el portal de costos): ver hot_resumen_mensual.sql. No cambiar sin avisar.

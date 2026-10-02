@@ -8,7 +8,7 @@ App web de un solo archivo (`index.html`, HTML + JS sin framework) que asigna el
 |---|---|
 | `index.html` | La app completa. Trae embebido el ejemplo de agosto 2026 (se carga solo la primera vez). |
 | `supabase_schema.sql` | Tablas y políticas para el proyecto Supabase. |
-| `sql/hot_resumen_mensual.sql` | Vista de resumen mensual que consume el portal de costos (ver sección). |
+| `hot_resumen_mensual.sql` | Vista de resumen mensual que consume el portal de costos (ver sección). |
 | `data/agosto_2026.json` | Agosto 2026 extraído del Excel, en el formato que consume la app. |
 | `tools/extraer_agosto.py` | Extrae el JSON a partir de `consumo Agosto 26estimativo.xlsx` (sirve de referencia del formato). |
 | `tools/motor_ref.py` | Motor de cálculo de referencia en Python; da exactamente lo mismo que el motor JS. |
@@ -54,7 +54,7 @@ La pestaña *Dashboard* resume todas las liquidaciones guardadas (todos los mese
 
 ## Vista `hot_resumen_mensual` (la consume el portal de costos)
 
-**No cambiar esta vista (columnas ni semántica) sin avisar al proyecto `portal-costos-physis`**: el portal de costos (Flask, PC de la oficina) la lee para calcular la facturación del feedlot. Vive en el mismo proyecto Supabase (Caravanas Pecuaria, tablas `hot_`); el SQL está en `sql/hot_resumen_mensual.sql` y se repite acá.
+**No cambiar esta vista (columnas ni semántica) sin avisar al proyecto `portal-costos-physis`**: el portal de costos (Flask, PC de la oficina) la lee para calcular la facturación del feedlot. Vive en el mismo proyecto Supabase (Caravanas Pecuaria, tablas `hot_`); el SQL está en `hot_resumen_mensual.sql` y se repite acá.
 
 Una fila por mes y hotelero, con los importes de la liquidación guardada al cerrar el mes, todo **sin IVA**: `mes` (AAAA-MM), `hotelero`, `tratamiento`, `es_propio`, `hoteleria`, `alimentacion`, `sanidad`, `neto`, `estado`, `cerrado_el`. Reproduce el Dashboard: "facturado total por mes" = `sum(neto)` por mes; "facturación propia" = `sum(neto) where es_propio`. `es_propio = true` es lo que el Dashboard llama **módulo ganadería** (campo «Módulo» del hotelero en la pestaña Hoteleros, tomado del padrón del mes más reciente; por defecto Bulltrade, PEGSA, El Saguipe y Alonso Danae); `false` son terceros. Solo aparecen meses cerrados: reabrir un mes borra sus liquidaciones y por lo tanto sus filas.
 
